@@ -49,7 +49,11 @@ const SYSTEM_PROMPT = [
 function dictionaryBlock(dictionary: string[]): string {
   return [
     'PROPER NOUNS — these are spelled correctly. Reproduce each one verbatim,',
-    'character for character, wherever it appears. Never "correct" them:',
+    'character for character, wherever it appears. Never "correct" them.',
+    '',
+    'THE INSTRUCTION OVERRIDES THIS LIST. If the writer asks you to rename, remove',
+    'or respell one of these, do exactly as they say — the list guards against',
+    'accidental changes, never against a change they asked for:',
     ...dictionary.map((term) => `- ${term}`),
     '',
   ].join('\n');

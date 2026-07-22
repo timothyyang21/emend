@@ -12,6 +12,7 @@ import { chapterLabel, currentChapter } from '@/lib/session/chapters';
 import { describeEdit, lastEdit, restoreLabel } from '@/lib/session/history';
 import { runEdit } from '@/lib/session/runEdit';
 import { VOICE_STATUS_LABEL, useVoiceCapture } from '@/lib/voice';
+import { useDictionary } from '@/store/dictionary';
 import { useDoc } from '@/store/doc';
 import { useHistory } from '@/store/history';
 import { REVIEW_PHASE_LABEL, useProposal } from '@/store/proposal';
@@ -37,6 +38,7 @@ export default function Home() {
   const review = useProposal();
   const voice = useVoiceCapture();
   const history = useHistory();
+  const dictionary = useDictionary();
   const router = useRouter();
   const [applying, setApplying] = useState(false);
   const [undoing, setUndoing] = useState(false);
@@ -63,7 +65,11 @@ export default function Home() {
 
     review.begin(instruction);
     try {
-      const proposal = await runEdit(doc.markdown, instruction);
+      // The story bible rides every edit: the server turns it into "preserve the
+      // exact spelling of these unless told otherwise".
+      const proposal = await runEdit(doc.markdown, instruction, {
+        dictionary: dictionary.terms,
+      });
       if (proposal.hunks.length === 0) {
         review.fail(`Nothing changed — “${instruction}” left the text as it was.`);
         return;
@@ -73,7 +79,7 @@ export default function Home() {
     } catch (e) {
       review.fail(e instanceof Error ? e.message : 'The edit could not be made.');
     }
-  }, [voice, review, doc.markdown]);
+  }, [voice, review, doc.markdown, dictionary.terms]);
 
   const onApply = useCallback(async () => {
     const { proposal, decisions } = review;
