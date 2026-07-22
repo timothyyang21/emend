@@ -113,6 +113,24 @@ function RichEditor({
 
       const next = htmlToMarkdown(message.html);
       if (next === shown.current) return; // nothing actually changed
+
+      // THE DATA-LOSS GUARD.
+      //
+      // A zero-length document was observed reaching the server from a device
+      // and landing on the version stack — an autosave that blanks someone's
+      // manuscript. The page can produce an empty innerHTML during the
+      // load/hydration race, and by the time it crosses the bridge it is
+      // indistinguishable from a real edit.
+      //
+      // So: emptying the manuscript is allowed ONLY when the writer did it. A
+      // deliberate select-all-and-delete carries userEdited; a racy re-render
+      // does not. This drops the second and keeps the first, which is why it is
+      // not simply "reject empty".
+      if (next.trim().length === 0 && shown.current.trim().length > 0 && !message.userEdited) {
+        console.warn('[MarkdownEditor] dropped an empty document that the writer did not type');
+        return;
+      }
+
       shown.current = next;
       onChangeMarkdown(next);
     },

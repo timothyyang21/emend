@@ -14,7 +14,17 @@ import { colors, radius, space } from '@/theme/tokens';
 /** Messages the page posts to React Native. */
 export type EditorMessage =
   | { type: 'ready'; html: string }
-  | { type: 'change'; html: string }
+  | {
+      type: 'change';
+      html: string;
+      /**
+       * True only when this change came from the writer acting on the document —
+       * a keystroke, a paste, a formatting command. Anything else is the page
+       * talking to itself, and an EMPTY one of those must never reach the
+       * manuscript. See the guard in MarkdownEditor.
+       */
+      userEdited: boolean;
+    }
   | { type: 'error'; message: string }
   // Focus state crosses the bridge so the app can offer its own way out of the
   // keyboard, and stop offering it once the keyboard is gone.
@@ -160,9 +170,16 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
     post({ type: 'error', message: 'Could not open the document in the editor.' });
   }
 
+  // Set once the initial document is in the DOM. Anything the page emits before
+  // this is hydration noise, not an edit — dropping it is the whole point.
+  var pageReady = false;
+  // Flipped by real writer actions only.
+  var userEdited = false;
+
   function emit() {
     timer = null;
-    post({ type: 'change', html: doc.innerHTML });
+    if (!pageReady) return;
+    post({ type: 'change', html: doc.innerHTML, userEdited: userEdited });
   }
 
   function scheduleEmit() {
@@ -226,6 +243,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
   }
 
   doc.addEventListener('input', function () {
+    userEdited = true;
     scheduleEmit();
     keepCaretVisible();
     scheduleToolbarSync();
@@ -236,6 +254,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
   doc.addEventListener('paste', function (e) {
     e.preventDefault();
     var text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    userEdited = true;
     document.execCommand('insertText', false, text);
   });
 
@@ -293,6 +312,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
     if (!b || b.tagName !== 'BUTTON') return;
     e.preventDefault();
     doc.focus();
+    userEdited = true;
     if (b.dataset.cmd) {
       document.execCommand(b.dataset.cmd, false, null);
     } else if (b.dataset.block) {
@@ -340,6 +360,9 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
   window.__setHtml = function (html) {
     if (timer) { clearTimeout(timer); timer = null; }
     doc.innerHTML = html;
+    // The app replacing the document is not the writer editing it. Leaving this
+    // flag set would let a later racy emit claim the writer's authority.
+    userEdited = false;
     syncToolbar();
   };
 
@@ -352,6 +375,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
   window.__emitNow = function () { if (timer) { clearTimeout(timer); } emit(); };
 
   syncToolbar();
+  pageReady = true;
   post({ type: 'ready', html: doc.innerHTML });
 })();
 </script>
