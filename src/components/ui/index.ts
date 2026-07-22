@@ -1,4 +1,5 @@
 export { AppText } from './AppText';
+export { BackLink } from './BackLink';
 export { Screen } from './Screen';
 export { Button } from './Button';
 export { Card } from './Card';

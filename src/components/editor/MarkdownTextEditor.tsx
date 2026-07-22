@@ -19,7 +19,13 @@ export function MarkdownTextEditor({
   editable = true,
   onReady,
   inputRef,
-}: MarkdownEditorProps & { inputRef?: RefObject<TextInput | null> }) {
+  onFocus,
+  onBlur,
+}: MarkdownEditorProps & {
+  inputRef?: RefObject<TextInput | null>;
+  onFocus?: () => void;
+  onBlur?: () => void;
+}) {
   const announced = useRef(false);
   useEffect(() => {
     if (announced.current) return;
@@ -30,6 +36,8 @@ export function MarkdownTextEditor({
   return (
     <TextInput
       ref={inputRef}
+      onFocus={onFocus}
+      onBlur={onBlur}
       value={markdown}
       onChangeText={onChangeMarkdown}
       editable={editable}

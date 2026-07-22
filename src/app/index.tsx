@@ -45,6 +45,10 @@ export default function Home() {
   // The command panel is closed by default: the editor is for writing, and a
   // permanent control bar competes with the sentence being written.
   const [voiceOpen, setVoiceOpen] = useState(false);
+  // Mirrors the page's focus so the top bar can offer the way out of the
+  // keyboard. Tap-outside still works; this is the backup that is always in the
+  // same place.
+  const [editorFocused, setEditorFocused] = useState(false);
   const editorRef = useRef<MarkdownEditorHandle>(null);
 
   // Tapping anything that is not the manuscript puts the keyboard away. Without
@@ -104,10 +108,16 @@ export default function Home() {
    * Nothing is removed from the stack, so this is reversible in its turn.
    */
   const onUndo = useCallback(async () => {
-    const previous = lastEdit(history.versions);
-    if (!previous) return;
     setUndoing(true);
     try {
+      // Re-read the stack FIRST and act on what comes back, never on the cached
+      // copy. The cache is refreshed in the background, so acting on it makes
+      // Undo silently do nothing whenever that refresh was stale or had failed —
+      // which is indistinguishable, on a phone, from a dead button.
+      await history.refresh();
+      const previous = lastEdit(useHistory.getState().versions);
+      if (!previous) return;
+
       doc.setMarkdown(previous.markdown, restoreLabel(previous, Date.now()));
       await doc.flush();
       await history.refresh();
@@ -189,6 +199,11 @@ export default function Home() {
         }}
         disabled={undoing}
       />
+      {/* Only while the keyboard is up. A permanent Done would be a control that
+          does nothing most of the time. */}
+      {editorFocused && (
+        <Button title="Done" variant="secondary" size="sm" onPress={dismissKeyboard} />
+      )}
     </View>
   );
 
@@ -228,6 +243,7 @@ export default function Home() {
           ref={editorRef}
           markdown={doc.markdown}
           onChangeMarkdown={(md: string) => doc.setMarkdown(md)}
+          onFocusChange={setEditorFocused}
           editable={!busy}
         />
       </View>

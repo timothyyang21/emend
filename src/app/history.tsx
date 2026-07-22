@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
-import { AppText, Button, Card, Screen } from '@/components/ui';
+import { AppText, BackLink, Button, Card, Screen } from '@/components/ui';
 import { describeEdit, relativeTime, restorable, restoreLabel } from '@/lib/session/history';
 import { useDoc } from '@/store/doc';
 import { useHistory } from '@/store/history';
@@ -41,6 +41,7 @@ export default function History() {
 
   return (
     <Screen scroll>
+      <BackLink label="Chapter 4" onPress={() => router.navigate('/')} />
       <AppText variant="h1">History</AppText>
       <AppText variant="muted">
         Every edit you accepted. Tap one to put the manuscript back to how it was before that
@@ -80,14 +81,6 @@ export default function History() {
         </Card>
       ))}
 
-      {/* Names where it goes. Never router.back() — after two hops that lands
-          somewhere the writer didn't come from. */}
-      <Button
-        title="Back to the manuscript"
-        variant="ghost"
-        onPress={() => router.navigate('/')}
-        disabled={restoringVersion !== null}
-      />
     </Screen>
   );
 }

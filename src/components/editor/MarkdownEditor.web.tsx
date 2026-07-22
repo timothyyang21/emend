@@ -16,10 +16,18 @@ import type { MarkdownEditorProps } from '@/types/contracts';
 import { MarkdownTextEditor } from './MarkdownTextEditor';
 import type { MarkdownEditorHandle } from './types';
 
-export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
-  function MarkdownEditor(props, ref) {
-    const inputRef = useRef<TextInput>(null);
-    useImperativeHandle(ref, () => ({ blur: () => inputRef.current?.blur() }));
-    return <MarkdownTextEditor {...props} inputRef={inputRef} />;
-  }
-);
+export const MarkdownEditor = forwardRef<
+  MarkdownEditorHandle,
+  MarkdownEditorProps & { onFocusChange?: (focused: boolean) => void }
+>(function MarkdownEditor({ onFocusChange, ...props }, ref) {
+  const inputRef = useRef<TextInput>(null);
+  useImperativeHandle(ref, () => ({ blur: () => inputRef.current?.blur() }));
+  return (
+    <MarkdownTextEditor
+      {...props}
+      inputRef={inputRef}
+      onFocus={() => onFocusChange?.(true)}
+      onBlur={() => onFocusChange?.(false)}
+    />
+  );
+});

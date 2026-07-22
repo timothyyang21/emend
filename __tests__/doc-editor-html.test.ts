@@ -53,13 +53,14 @@ test('bridge messages are parsed defensively', () => {
 
 // --- keyboard dismissal + caret stability -----------------------------------
 
-test('the page offers a Done button whenever the keyboard is up', () => {
+test('dismissing the keyboard is the app\'s job, not the page\'s', () => {
   const html = buildEditorHtml('<p>x</p>', true);
-  expect(html).toContain('id="done"');
-  // The rail — and therefore the way out — appears on focus, not on selection.
-  // Requiring a selection to dismiss the keyboard would be a trap with extra steps.
-  expect(html).toContain('#bar {\n    display: none;');
-  expect(html).toContain('body.focused #bar { display: flex; }');
+  // The in-page Done bar is gone: a second control rail inside the document was
+  // chrome on top of chrome. The app's top bar owns Done now, in the same place
+  // as Undo and History, and the page just reports its focus so the bar knows
+  // when to offer it.
+  expect(html).not.toContain('id="done"');
+  expect(html).toContain('window.__blur');
   expect(html).toMatch(/doc\.addEventListener\('focus'/);
   expect(html).toMatch(/doc\.addEventListener\('blur'/);
 });

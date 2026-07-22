@@ -28,8 +28,15 @@ import type { MarkdownEditorProps } from '@/types/contracts';
 import { MarkdownTextEditor } from './MarkdownTextEditor';
 import type { MarkdownEditorHandle } from './types';
 
-export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
-  function MarkdownEditor(props, ref) {
+export type MarkdownEditorExtraProps = {
+  /** Fires when the document gains or loses focus, i.e. the keyboard opened or closed. */
+  onFocusChange?: (focused: boolean) => void;
+};
+
+export const MarkdownEditor = forwardRef<
+  MarkdownEditorHandle,
+  MarkdownEditorProps & MarkdownEditorExtraProps
+>(function MarkdownEditor(props, ref) {
   // A WebView that fails to load is a manuscript the writer cannot touch. The
   // plain editor takes over — announced in words, because an editor that quietly
   // changed shape is worse than one that says why.
@@ -57,7 +64,8 @@ function RichEditor({
   onReady,
   onFail,
   handleRef,
-}: MarkdownEditorProps & {
+  onFocusChange,
+}: MarkdownEditorProps & MarkdownEditorExtraProps & {
   onFail: (message: string) => void;
   handleRef: React.ForwardedRef<MarkdownEditorHandle>;
 }) {
@@ -98,7 +106,10 @@ function RichEditor({
         return;
       }
 
-      if (message.type === 'focus' || message.type === 'blur') return;
+      if (message.type === 'focus' || message.type === 'blur') {
+        onFocusChange?.(message.type === 'focus');
+        return;
+      }
 
       if (message.type === 'ready') {
         ready.current = true;
@@ -134,7 +145,7 @@ function RichEditor({
       shown.current = next;
       onChangeMarkdown(next);
     },
-    [markdown, onChangeMarkdown, onReady, onFail]
+    [markdown, onChangeMarkdown, onReady, onFail, onFocusChange]
   );
 
   useEffect(() => {

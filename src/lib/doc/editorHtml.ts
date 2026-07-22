@@ -74,7 +74,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
     border-bottom: 1px solid ${colors.border};
     flex: 0 0 auto;
   }
-  body.focused #bar { display: ${editable ? 'flex' : 'none'}; }
+  body.selecting #bar { display: ${editable ? 'flex' : 'none'}; }
   #toolbar {
     display: none;
     gap: ${space.xs}px;
@@ -102,13 +102,6 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
   }
   /* Only offered while the keyboard is actually up, so it never reads as a
      commit control on a document nobody is editing. */
-  #done {
-    margin-left: auto;
-    flex: 0 0 auto;
-    background: ${colors.primary};
-    border-color: ${colors.primary};
-    color: ${colors.primaryText};
-  }
   #doc {
     flex: 1 1 auto;
     overflow-y: auto; -webkit-overflow-scrolling: touch;
@@ -143,16 +136,12 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
     <button type="button" data-block="h2">Heading</button>
     <button type="button" data-block="p">Body</button>
   </div>
-  <!-- Shown whenever the keyboard is up, selection or not: the way out must not
-       depend on having selected something. -->
-  <button type="button" id="done">Done</button>
 </div>
 <div id="doc" contenteditable="${editable ? 'true' : 'false'}" spellcheck="true" autocorrect="on"></div>
 <script>
 (function () {
   var doc = document.getElementById('doc');
   var toolbar = document.getElementById('toolbar');
-  var done = document.getElementById('done');
   var bar = document.getElementById('bar');
   var timer = null;
 
@@ -287,7 +276,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
 
   function syncToolbar() {
     var block = blockTag();
-    var buttons = toolbar.querySelectorAll('button:not(#done)');
+    var buttons = toolbar.querySelectorAll('button');
     for (var i = 0; i < buttons.length; i++) {
       var b = buttons[i];
       var on = false;
@@ -345,12 +334,6 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
   }
   doc.addEventListener('focus', function () { setFocused(true); });
   doc.addEventListener('blur', function () { setFocused(false); });
-
-  done.addEventListener('mousedown', function (e) { e.preventDefault(); });
-  done.addEventListener('click', function (e) {
-    e.preventDefault();
-    doc.blur();
-  });
 
   // Called from the app when the writer taps anything outside the editor.
   window.__blur = function () { doc.blur(); };

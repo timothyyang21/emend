@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
-import { AppText, Button, Card, ConfirmDialog, tokens } from '@/components/ui';
+import { AppText, BackLink, Button, Card, ConfirmDialog, tokens } from '@/components/ui';
 import { tally, tallySentence } from '@/store/proposal';
 import type { DiffSegment, EditProposal, HunkDecision, ID } from '@/types/contracts';
 
@@ -69,14 +69,8 @@ export function ProposalReview({
         }}
       />
 
-      {/* Names where it goes, and never leaves silently. */}
-      <Button
-        title="Back to the manuscript"
-        variant="ghost"
-        size="sm"
-        onPress={() => setConfirming(true)}
-        disabled={applying}
-      />
+      {/* Same shape as every other screen, and never leaves silently. */}
+      <BackLink label="Chapter 4" onPress={() => setConfirming(true)} />
 
       <Card>
         <AppText variant="label">YOU SAID</AppText>
