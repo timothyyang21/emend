@@ -15,14 +15,17 @@ import { colors, radius, space } from '@/theme/tokens';
 export type EditorMessage =
   | { type: 'ready'; html: string }
   | { type: 'change'; html: string }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  // Focus state crosses the bridge so the app can offer its own way out of the
+  // keyboard, and stop offering it once the keyboard is gone.
+  | { type: 'focus' }
+  | { type: 'blur' };
 
 export function parseEditorMessage(raw: string): EditorMessage | null {
   try {
     const parsed = JSON.parse(raw) as EditorMessage;
-    if (parsed && (parsed.type === 'ready' || parsed.type === 'change' || parsed.type === 'error')) {
-      return parsed;
-    }
+    const kinds = ['ready', 'change', 'error', 'focus', 'blur'];
+    if (parsed && kinds.includes(parsed.type)) return parsed;
     return null;
   } catch {
     return null;
@@ -77,6 +80,16 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
     border-color: ${colors.primary};
     color: ${colors.primaryText};
   }
+  /* Only offered while the keyboard is actually up, so it never reads as a
+     commit control on a document nobody is editing. */
+  #done {
+    margin-left: auto;
+    display: none;
+    background: ${colors.primary};
+    border-color: ${colors.primary};
+    color: ${colors.primaryText};
+  }
+  body.focused #done { display: block; }
   #doc {
     flex: 1 1 auto;
     overflow-y: auto; -webkit-overflow-scrolling: touch;
@@ -107,12 +120,16 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
   <button type="button" data-block="h1">Title</button>
   <button type="button" data-block="h2">Heading</button>
   <button type="button" data-block="p">Body</button>
+  <!-- Right-aligned and only while typing: a way out of the keyboard that is a
+       word, in the one place the writer is already looking. -->
+  <button type="button" id="done">Done</button>
 </div>
 <div id="doc" contenteditable="${editable ? 'true' : 'false'}" spellcheck="true" autocorrect="on"></div>
 <script>
 (function () {
   var doc = document.getElementById('doc');
   var toolbar = document.getElementById('toolbar');
+  var done = document.getElementById('done');
   var timer = null;
 
   function post(msg) {
@@ -140,30 +157,56 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
   }
 
   // Text that grows has to stay on screen AS it grows, not only when it opens.
+  //
+  // Every read here (getBoundingClientRect) forces layout, so this runs at most
+  // once per frame. Called synchronously on every keystroke it was a measure/
+  // write/measure cycle per character, which is most of what "janky typing" is.
+  var caretPending = false;
   function keepCaretVisible() {
-    var sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return;
-    var rect = sel.getRangeAt(0).getBoundingClientRect();
-    if (!rect || (rect.top === 0 && rect.bottom === 0)) return;
-    var limit = doc.getBoundingClientRect().bottom - 24;
-    if (rect.bottom > limit) doc.scrollTop += rect.bottom - limit + 24;
-    if (rect.top < doc.getBoundingClientRect().top + 8) {
-      doc.scrollTop -= doc.getBoundingClientRect().top + 8 - rect.top;
-    }
+    if (caretPending) return;
+    caretPending = true;
+    requestAnimationFrame(function () {
+      caretPending = false;
+      var sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      var rect = sel.getRangeAt(0).getBoundingClientRect();
+      if (!rect || (rect.top === 0 && rect.bottom === 0)) return;
+      var box = doc.getBoundingClientRect();
+      if (rect.bottom > box.bottom - 24) {
+        doc.scrollTop += rect.bottom - (box.bottom - 24);
+      } else if (rect.top < box.top + 8) {
+        doc.scrollTop -= box.top + 8 - rect.top;
+      }
+    });
   }
 
   // iOS does NOT shrink a WKWebView's layout viewport when the keyboard opens —
   // 100% stays 100%, and the line being typed ends up underneath the keyboard.
   // The visual viewport is the only thing that knows the truth.
+  //
+  // Only ever write the height when it CHANGED. Assigning body.style.height on
+  // every event invalidates layout even when the value is identical, and the
+  // visual viewport emits a scroll event per frame of momentum scrolling.
+  var lastHeight = 0;
   function fitToViewport() {
     var vv = window.visualViewport;
     if (!vv) return;
-    document.body.style.height = vv.height + 'px';
-    keepCaretVisible();
+    var h = Math.round(vv.height);
+    if (h === lastHeight) return;
+    lastHeight = h;
+    document.body.style.height = h + 'px';
   }
 
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', fitToViewport);
+    // resize = the keyboard opened or closed. THAT is when the caret needs
+    // rescuing, and only then.
+    window.visualViewport.addEventListener('resize', function () {
+      fitToViewport();
+      keepCaretVisible();
+    });
+    // scroll must NOT touch the caret: dragging the visual viewport is the
+    // writer scrolling, and scrolling them back to the caret mid-drag is the
+    // page fighting the finger.
     window.visualViewport.addEventListener('scroll', fitToViewport);
     fitToViewport();
   }
@@ -171,7 +214,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
   doc.addEventListener('input', function () {
     scheduleEmit();
     keepCaretVisible();
-    syncToolbar();
+    scheduleToolbarSync();
   });
 
   // Pasted rich text is formatting we do not support and would silently drop —
@@ -195,7 +238,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
 
   function syncToolbar() {
     var block = blockTag();
-    var buttons = toolbar.querySelectorAll('button');
+    var buttons = toolbar.querySelectorAll('button:not(#done)');
     for (var i = 0; i < buttons.length; i++) {
       var b = buttons[i];
       var on = false;
@@ -229,7 +272,37 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
     scheduleEmit();
   });
 
-  document.addEventListener('selectionchange', syncToolbar);
+  // selectionchange fires on every caret move, and syncToolbar runs
+  // queryCommandState per button. Coalesce to one pass per frame.
+  var toolbarPending = false;
+  function scheduleToolbarSync() {
+    if (toolbarPending) return;
+    toolbarPending = true;
+    requestAnimationFrame(function () {
+      toolbarPending = false;
+      syncToolbar();
+    });
+  }
+  document.addEventListener('selectionchange', scheduleToolbarSync);
+
+  // --- dismissing the keyboard ---------------------------------------------
+  // A contenteditable with no visible way out is a trap: iOS shows no "Done" of
+  // its own, and there is nowhere on this page that isn't the document to tap.
+  function setFocused(on) {
+    document.body.classList.toggle('focused', on);
+    post({ type: on ? 'focus' : 'blur' });
+  }
+  doc.addEventListener('focus', function () { setFocused(true); });
+  doc.addEventListener('blur', function () { setFocused(false); });
+
+  done.addEventListener('mousedown', function (e) { e.preventDefault(); });
+  done.addEventListener('click', function (e) {
+    e.preventDefault();
+    doc.blur();
+  });
+
+  // Called from the app when the writer taps anything outside the editor.
+  window.__blur = function () { doc.blur(); };
 
   // Replace the whole document from the app side (a load, or accepted edits).
   // Deliberately NOT an "emit" — the app already knows this text.

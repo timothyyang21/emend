@@ -16,7 +16,7 @@
  * (Web has no WebView implementation — MarkdownEditor.web.tsx serves the plain
  * editor there, same props.)
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
@@ -26,8 +26,10 @@ import { htmlToMarkdown, markdownToHtml } from '@/lib/doc/markdown';
 import type { MarkdownEditorProps } from '@/types/contracts';
 
 import { MarkdownTextEditor } from './MarkdownTextEditor';
+import type { MarkdownEditorHandle } from './types';
 
-export function MarkdownEditor(props: MarkdownEditorProps) {
+export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
+  function MarkdownEditor(props, ref) {
   // A WebView that fails to load is a manuscript the writer cannot touch. The
   // plain editor takes over — announced in words, because an editor that quietly
   // changed shape is worse than one that says why.
@@ -44,8 +46,9 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
       </View>
     );
   }
-  return <RichEditor {...props} onFail={setFailed} />;
-}
+    return <RichEditor {...props} onFail={setFailed} handleRef={ref} />;
+  }
+);
 
 function RichEditor({
   markdown,
@@ -53,8 +56,18 @@ function RichEditor({
   editable = true,
   onReady,
   onFail,
-}: MarkdownEditorProps & { onFail: (message: string) => void }) {
+  handleRef,
+}: MarkdownEditorProps & {
+  onFail: (message: string) => void;
+  handleRef: React.ForwardedRef<MarkdownEditorHandle>;
+}) {
   const webRef = useRef<WebView>(null);
+
+  // Tapping anywhere outside the document has to put the keyboard away. The
+  // page owns the contenteditable, so only it can blur — the app asks.
+  useImperativeHandle(handleRef, () => ({
+    blur: () => webRef.current?.injectJavaScript('window.__blur && window.__blur(); true;'),
+  }));
 
   // The markdown the page is currently displaying. Both directions update it,
   // which is what makes the guard below symmetrical.
@@ -84,6 +97,8 @@ function RichEditor({
         onFail(message.message);
         return;
       }
+
+      if (message.type === 'focus' || message.type === 'blur') return;
 
       if (message.type === 'ready') {
         ready.current = true;

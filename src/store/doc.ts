@@ -23,7 +23,10 @@ import type { DocStore, SyncStatus } from '@/types/contracts';
  * OLD seed forever and you debug a bug that only exists in AsyncStorage.
  * `migrate` throws the stale copy away rather than trying to reconcile it.
  */
-export const DOC_PERSIST_VERSION = 1;
+// 2: the seed became James's passage. Devices that opened the app before that
+// were carrying the old sample in AsyncStorage, and their local copy — being
+// "real local work" — got pushed UP to the server, overwriting the new seed.
+export const DOC_PERSIST_VERSION = 2;
 
 /**
  * Where the text on screen came from. Exists so we NEVER have to ask

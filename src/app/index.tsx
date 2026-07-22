@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, View } from 'react-native';
 
 import { ProposalReview } from '@/components/diff';
 import { MarkdownEditor } from '@/components/editor';
+import type { MarkdownEditorHandle } from '@/components/editor/types';
 import { AppText, Button, Card, Screen } from '@/components/ui';
 import { applyDecisions, layoutDiff } from '@/lib/diff';
 import { runEdit } from '@/lib/session/runEdit';
@@ -31,6 +32,12 @@ export default function Home() {
   const review = useProposal();
   const voice = useVoiceCapture();
   const [applying, setApplying] = useState(false);
+  const editorRef = useRef<MarkdownEditorHandle>(null);
+
+  // Tapping anything that is not the manuscript puts the keyboard away. Without
+  // this a contenteditable is a trap: iOS offers no "Done" of its own, and every
+  // pixel of the editor is more document to type into.
+  const dismissKeyboard = useCallback(() => editorRef.current?.blur(), []);
 
   useEffect(() => {
     doc.load();
@@ -70,10 +77,13 @@ export default function Home() {
   }, [review, doc]);
 
   const header = (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Pressable
+      onPress={dismissKeyboard}
+      style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+    >
       <AppText variant="h1">Emend</AppText>
       <AppText variant="label">{SYNC_STATUS_LABEL[doc.status].toUpperCase()}</AppText>
-    </View>
+    </Pressable>
   );
 
   // --- Review mode: the page scrolls, the editor is off screen -------------
@@ -108,12 +118,14 @@ export default function Home() {
       {/* Bounded box — the editor scrolls itself. */}
       <View style={{ flex: 1 }}>
         <MarkdownEditor
+          ref={editorRef}
           markdown={doc.markdown}
           onChangeMarkdown={(md: string) => doc.setMarkdown(md)}
           editable={!busy}
         />
       </View>
 
+      <Pressable onPress={dismissKeyboard}>
       <Card>
         {/* Fixed footprint: a status line that appears and disappears would
             shove the mic button out from under the writer's thumb. */}
@@ -136,7 +148,10 @@ export default function Home() {
         ) : (
           <Button
             title={thinking ? 'Working…' : 'Speak an instruction'}
-            onPress={voice.start}
+            onPress={() => {
+              dismissKeyboard();
+              voice.start();
+            }}
             loading={busy}
             disabled={busy}
           />
@@ -155,6 +170,7 @@ export default function Home() {
           </>
         )}
       </Card>
+      </Pressable>
     </Screen>
   );
 }

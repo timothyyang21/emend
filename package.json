@@ -20,7 +20,8 @@
     "qr": "bash scripts/qr.sh",
     "deploy:web": "bash scripts/deploy-web.sh",
     "deliver": "bash scripts/deliver.sh",
-    "dev:api": "node --experimental-strip-types scripts/dev-api.mjs"
+    "dev:api": "node --experimental-strip-types scripts/dev-api.mjs",
+    "reset:doc": "bash scripts/reset-doc.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.4",

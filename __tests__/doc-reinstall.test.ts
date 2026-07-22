@@ -103,3 +103,13 @@ test('an unreachable server leaves real prose on screen and says so', async () =
   expect(s.status).toBe('error');
   expect(typeof s.error).toBe('string');
 });
+
+test('the persist version is bumped whenever the seed changes', () => {
+  // This is not ceremony. When the seed changed and this did not, every device
+  // that had opened the app kept its old copy, and — because unsaved local work
+  // outranks the server — pushed that stale copy UP, overwriting the new seed on
+  // the server for everyone. The rule is in CLAUDE.md; the cost of forgetting it
+  // was a demo that opened on the wrong document.
+  const { DOC_PERSIST_VERSION } = require('@/store/doc') as typeof import('@/store/doc');
+  expect(DOC_PERSIST_VERSION).toBeGreaterThanOrEqual(2);
+});

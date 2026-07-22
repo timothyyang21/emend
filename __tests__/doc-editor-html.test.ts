@@ -50,3 +50,50 @@ test('bridge messages are parsed defensively', () => {
   expect(parseEditorMessage(JSON.stringify({ type: 'something-else' }))).toBeNull();
   expect(parseEditorMessage('null')).toBeNull();
 });
+
+// --- keyboard dismissal + caret stability -----------------------------------
+
+test('the page offers a Done button, shown only while the document has focus', () => {
+  const html = buildEditorHtml('<p>x</p>', true);
+  expect(html).toContain('id="done"');
+  // Hidden by default, revealed by the focus class — never a stray commit-looking
+  // control on a document nobody is editing.
+  expect(html).toContain('body.focused #done { display: block; }');
+  expect(html).toMatch(/doc\.addEventListener\('focus'/);
+  expect(html).toMatch(/doc\.addEventListener\('blur'/);
+});
+
+test('the app can blur the document across the bridge', () => {
+  expect(buildEditorHtml('<p>x</p>', true)).toContain('window.__blur');
+});
+
+test('viewport scroll never moves the caret — only a resize does', () => {
+  const html = buildEditorHtml('<p>x</p>', true);
+  // The scroll listener gets fitToViewport ALONE. Pairing it with
+  // keepCaretVisible is the page scrolling back while the writer's finger is
+  // still dragging, which reads as the editor fighting them.
+  expect(html).toContain("addEventListener('scroll', fitToViewport)");
+  expect(html).toMatch(/addEventListener\('resize', function \(\) \{\s*fitToViewport\(\);\s*keepCaretVisible\(\);/);
+});
+
+test('layout-forcing work is coalesced to one pass per frame', () => {
+  const html = buildEditorHtml('<p>x</p>', true);
+  // Caret rescue and toolbar state both read layout; per-keystroke they are the
+  // measure/write/measure cycle that makes typing feel heavy.
+  expect(html).toContain('caretPending');
+  expect(html).toContain('toolbarPending');
+  expect(html).toMatch(/requestAnimationFrame/);
+  // And the viewport height is only written when it actually changed.
+  expect(html).toContain('if (h === lastHeight) return;');
+});
+
+test('the inline script actually parses', () => {
+  // The page is a string we assemble by hand. A syntax error in it does not fail
+  // typecheck, lint, or the bundle — it produces a WebView that renders the
+  // document and silently does nothing, which is indistinguishable from working.
+  // `new Function` compiles without executing, so this catches it here.
+  const html = buildEditorHtml('<p>Hello <strong>world</strong></p>', true);
+  const script = /<script>([\s\S]*?)<\/script>/.exec(html)?.[1];
+  expect(script).toBeTruthy();
+  expect(() => new Function(script as string)).not.toThrow();
+});

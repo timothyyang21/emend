@@ -7,7 +7,7 @@
  *
  * Nothing here can corrupt anything: the markdown is the value, verbatim.
  */
-import { useEffect, useRef } from 'react';
+import { type RefObject, useEffect, useRef } from 'react';
 import { StyleSheet, TextInput } from 'react-native';
 
 import { tokens } from '@/components/ui';
@@ -18,7 +18,8 @@ export function MarkdownTextEditor({
   onChangeMarkdown,
   editable = true,
   onReady,
-}: MarkdownEditorProps) {
+  inputRef,
+}: MarkdownEditorProps & { inputRef?: RefObject<TextInput | null> }) {
   const announced = useRef(false);
   useEffect(() => {
     if (announced.current) return;
@@ -28,6 +29,7 @@ export function MarkdownTextEditor({
 
   return (
     <TextInput
+      ref={inputRef}
       value={markdown}
       onChangeText={onChangeMarkdown}
       editable={editable}
