@@ -22,15 +22,17 @@ export default function Dictionary() {
   const dictionary = useDictionary();
   const [draft, setDraft] = useState('');
 
+  const [draftDescription, setDraftDescription] = useState('');
   const trimmed = draft.trim();
   const duplicate =
     trimmed.length > 0 &&
-    dictionary.terms.some((t) => t.toLowerCase() === trimmed.toLowerCase());
+    dictionary.entries.some((e) => e.term.toLowerCase() === trimmed.toLowerCase());
 
   function addTerm() {
     if (!trimmed || duplicate) return;
-    dictionary.add(draft);
+    dictionary.add(draft, draftDescription);
     setDraft('');
+    setDraftDescription('');
   }
 
   return (
@@ -43,40 +45,41 @@ export default function Dictionary() {
       </AppText>
 
       <Card>
-        <AppText variant="label">{dictionary.terms.length} ENTRIES</AppText>
+        <AppText variant="label">{dictionary.entries.length} ENTRIES</AppText>
 
-        {dictionary.terms.length === 0 ? (
+        {dictionary.entries.length === 0 ? (
           <AppText variant="muted">
             Empty. The AI will spell names however it sees fit — add the ones that matter.
           </AppText>
         ) : (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: tokens.space.sm }}>
-            {dictionary.terms.map((term) => (
-              <View
-                key={term}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: tokens.space.xs,
-                  paddingVertical: 6,
-                  paddingLeft: tokens.space.md,
-                  paddingRight: 6,
-                  borderRadius: tokens.radius.pill,
-                  backgroundColor: tokens.colors.surfaceAlt,
-                  borderWidth: 1,
-                  borderColor: tokens.colors.border,
-                }}
-              >
-                <AppText variant="body">{term}</AppText>
-                <Pressable
-                  onPress={() => dictionary.remove(term)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove ${term} from the dictionary`}
-                  hitSlop={8}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, padding: 2 })}
+          <View style={{ gap: tokens.space.md }}>
+            {dictionary.entries.map((entry) => (
+              <View key={entry.term} style={{ gap: tokens.space.xs }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
                 >
-                  <Icon name="close" size="sm" color="textMuted" />
-                </Pressable>
+                  <AppText variant="h2">{entry.term}</AppText>
+                  <Pressable
+                    onPress={() => dictionary.remove(entry.term)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${entry.term} from the dictionary`}
+                    hitSlop={10}
+                    style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, padding: 4 })}
+                  >
+                    <Icon name="close" size="sm" color="textMuted" />
+                  </Pressable>
+                </View>
+                {/* Edited in place: a name whose description is wrong is a name
+                    the model will use wrongly, and it should take one tap to fix. */}
+                <Input
+                  placeholder="What is this? (a character, a street…)"
+                  value={entry.description ?? ''}
+                  onChangeText={(text: string) => dictionary.describe(entry.term, text)}
+                />
               </View>
             ))}
           </View>
@@ -89,10 +92,17 @@ export default function Dictionary() {
           placeholder="e.g. Wyckhampe"
           value={draft}
           onChangeText={setDraft}
-          onSubmitEditing={addTerm}
-          returnKeyType="done"
+          returnKeyType="next"
           autoCapitalize="words"
           error={duplicate ? 'Already in the dictionary.' : undefined}
+        />
+        <Input
+          label="What is it? (optional)"
+          placeholder="e.g. a village on the north line"
+          value={draftDescription}
+          onChangeText={setDraftDescription}
+          onSubmitEditing={addTerm}
+          returnKeyType="done"
         />
         <Button
           title="Add to the dictionary"

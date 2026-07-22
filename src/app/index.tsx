@@ -12,7 +12,7 @@ import { chapterLabel, currentChapter } from '@/lib/session/chapters';
 import { describeEdit, lastEdit, restoreLabel } from '@/lib/session/history';
 import { runEdit } from '@/lib/session/runEdit';
 import { VOICE_STATUS_LABEL, useVoiceCapture } from '@/lib/voice';
-import { useDictionary } from '@/store/dictionary';
+import { toPromptTerms, useDictionary } from '@/store/dictionary';
 import { useDoc } from '@/store/doc';
 import { useHistory } from '@/store/history';
 import { REVIEW_PHASE_LABEL, useProposal } from '@/store/proposal';
@@ -47,6 +47,10 @@ export default function Home() {
   // same place.
   const [editorFocused, setEditorFocused] = useState(false);
   const editorRef = useRef<MarkdownEditorHandle>(null);
+  // The rose opens the panel; the panel holds the button that actually records.
+  // Two deliberate steps, so a single stray tap on a floating control can never
+  // start listening to the room.
+  const [voiceOpen, setVoiceOpen] = useState(false);
 
   // Tapping anything that is not the manuscript puts the keyboard away. Without
   // this a contenteditable is a trap: iOS offers no "Done" of its own, and every
@@ -69,17 +73,20 @@ export default function Home() {
       // The story bible rides every edit: the server turns it into "preserve the
       // exact spelling of these unless told otherwise".
       const proposal = await runEdit(doc.markdown, instruction, {
-        dictionary: dictionary.terms,
+        dictionary: toPromptTerms(dictionary.entries),
       });
       if (proposal.hunks.length === 0) {
         review.fail(`Nothing changed — “${instruction}” left the text as it was.`);
+        setVoiceOpen(false);
         return;
       }
       review.present(proposal);
+      setVoiceOpen(false);
     } catch (e) {
       review.fail(e instanceof Error ? e.message : 'The edit could not be made.');
+      setVoiceOpen(false);
     }
-  }, [voice, review, doc.markdown, dictionary.terms]);
+  }, [voice, review, doc.markdown, dictionary.entries]);
 
   const onApply = useCallback(async () => {
     // Read the store, not this render's snapshot: "accept all, then apply" sets
@@ -243,10 +250,7 @@ export default function Home() {
   const recording = voice.status === 'recording';
   const thinking = review.phase === 'thinking';
   const busy = thinking || voice.status === 'transcribing';
-  // NOT while recording: the button itself becomes the recording control, so the
-  // happy path never summons a panel at all. The panel is for the things a
-  // button cannot say — thinking, and failures.
-  const panelVisible = busy || !!voice.error || review.phase === 'error';
+  const panelVisible = voiceOpen || recording || busy || !!voice.error || review.phase === 'error';
 
   return (
     <Screen>
@@ -285,6 +289,36 @@ export default function Home() {
               <AppText variant="prose">“{review.pendingInstruction}”</AppText>
             )}
 
+            {recording ? (
+              <>
+                <Button title="Stop and make the change" onPress={onStopSpeaking} />
+                <Button
+                  title="Discard this recording"
+                  variant="ghost"
+                  onPress={() => {
+                    voice.cancel();
+                    setVoiceOpen(false);
+                  }}
+                />
+              </>
+            ) : (
+              !busy && (
+                <>
+                  {/* The button that actually records. Deliberately not the same
+                      words as the line above it. */}
+                  <Button title="Start speaking" onPress={voice.start} />
+                  <Button
+                    title="Close"
+                    variant="ghost"
+                    onPress={() => {
+                      voice.reset();
+                      setVoiceOpen(false);
+                    }}
+                  />
+                </>
+              )
+            )}
+
 
             {voice.error && (
               <>
@@ -318,8 +352,7 @@ export default function Home() {
             durationSec={voice.durationSec}
             onPress={() => {
               dismissKeyboard();
-              if (recording) onStopSpeaking();
-              else voice.start();
+              setVoiceOpen(true);
             }}
           />
         </View>

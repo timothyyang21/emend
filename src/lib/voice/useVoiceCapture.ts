@@ -17,7 +17,9 @@ import { TranscriptionError, transcribeAudio } from './transcribe';
 export type VoiceStatus = 'idle' | 'permission' | 'recording' | 'transcribing' | 'error';
 
 export const VOICE_STATUS_LABEL: Record<VoiceStatus, string> = {
-  idle: 'Tap to speak',
+  // Never the same words as the button beneath it — the panel said 'Tap to
+  // speak' above a button reading 'Tap to speak an instruction'.
+  idle: 'Ready when you are',
   permission: 'Asking for the microphone…',
   recording: 'Listening…',
   transcribing: 'Working out what you said…',
