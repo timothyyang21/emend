@@ -10,7 +10,7 @@ import { VoiceButton } from '@/components/voice/VoiceButton';
 import { VoiceStatus } from '@/components/voice/VoiceStatus';
 import { applyDecisions, layoutDiff } from '@/lib/diff';
 import { chapterLabel, currentChapter } from '@/lib/session/chapters';
-import { describeEdit, lastEdit, restoreLabel } from '@/lib/session/history';
+import { actionLabel, lastEdit, restoreLabel } from '@/lib/session/history';
 import { runEdit } from '@/lib/session/runEdit';
 import { VOICE_STATUS_LABEL, useVoiceCapture } from '@/lib/voice';
 import { toPromptTerms, useDictionary } from '@/store/dictionary';
@@ -205,7 +205,7 @@ export default function Home() {
           name="arrow-undo-outline"
           // The full sentence moves to the accessibility label rather than
           // disappearing: the control is compact, not mute.
-          label={`Undo ${describeEdit(undoTarget, Date.now())}`}
+          label={actionLabel(undoTarget, Date.now())}
           onPress={onUndo}
           disabled={undoing}
         />

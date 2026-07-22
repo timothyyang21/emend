@@ -49,9 +49,29 @@ export function relativeTime(then: number, now: number): string {
 }
 
 /**
- * The label to save a restore under, so undoing an undo reads correctly and the
- * stack stays a plain-English list of what happened.
+ * What the control for this entry should SAY.
+ *
+ * Restoring an entry whose label is already "Undo X" is not undoing an undo —
+ * it is putting X back, which every writer on earth calls Redo. Left alone the
+ * labels stack up as "Undo Undo Undo make it ominous", which is both unreadable
+ * and wrong about what the button does.
+ *
+ * The chain alternates, and it alternates forever:
+ *   "make it ominous"       → Undo make it ominous
+ *   "Undo make it ominous"  → Redo make it ominous
+ *   "Redo make it ominous"  → Undo make it ominous
+ */
+export function actionLabel(version: DocumentVersion, now: number): string {
+  const described = describeEdit(version, now);
+  if (described.startsWith('Undo ')) return `Redo ${described.slice('Undo '.length)}`;
+  if (described.startsWith('Redo ')) return `Undo ${described.slice('Redo '.length)}`;
+  return `Undo ${described}`;
+}
+
+/**
+ * The label a restore is SAVED under — the same words as the control the writer
+ * just pressed, so the stack reads back as the list of things they actually did.
  */
 export function restoreLabel(version: DocumentVersion, now: number): string {
-  return `Undo ${describeEdit(version, now)}`;
+  return actionLabel(version, now);
 }

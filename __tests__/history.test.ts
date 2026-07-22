@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 
-import { describeEdit, lastEdit, relativeTime, restorable, restoreLabel } from '@/lib/session/history';
+import { actionLabel, describeEdit, lastEdit, relativeTime, restorable, restoreLabel } from '@/lib/session/history';
 import type { DocumentVersion } from '@/types/contracts';
 
 const NOW = 1_700_000_000_000;
@@ -33,8 +33,19 @@ test('an unlabelled edit still says what tapping it does', () => {
   expect(describeEdit(v(2, '   ', 5 * 60_000), NOW)).toBe('the edit from 5 minutes ago');
 });
 
-test('restoring is saved under a label that reads correctly when undone again', () => {
+test('undoing an undo is a REDO, and the chain alternates forever', () => {
+  // "Undo Undo Undo make it ominous" is both unreadable and wrong about what the
+  // button does — putting back a change you just reversed is a redo.
+  expect(actionLabel(v(2, 'make it ominous'), NOW)).toBe('Undo make it ominous');
+  expect(actionLabel(v(2, 'Undo make it ominous'), NOW)).toBe('Redo make it ominous');
+  expect(actionLabel(v(2, 'Redo make it ominous'), NOW)).toBe('Undo make it ominous');
+  // Four hops deep it still reads as one of two words, never a stack of them.
+  expect(actionLabel(v(2, actionLabel(v(2, actionLabel(v(2, 'x'), NOW)), NOW)), NOW)).toBe('Undo x');
+});
+
+test('a restore is saved under exactly the words the writer just pressed', () => {
   expect(restoreLabel(v(2, 'make it ominous'), NOW)).toBe('Undo make it ominous');
+  expect(restoreLabel(v(2, 'Undo make it ominous'), NOW)).toBe('Redo make it ominous');
 });
 
 test('relative time is coarse and human', () => {

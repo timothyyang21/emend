@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { AppText, BackLink, Button, Card, Screen } from '@/components/ui';
-import { describeEdit, relativeTime, restorable, restoreLabel } from '@/lib/session/history';
+import { actionLabel, describeEdit, relativeTime, restorable, restoreLabel } from '@/lib/session/history';
 import { useDoc } from '@/store/doc';
 import { useHistory } from '@/store/history';
 
@@ -72,7 +72,7 @@ export default function History() {
           <AppText variant="label">{relativeTime(v.createdAt, now).toUpperCase()}</AppText>
           <AppText variant="prose">{describeEdit(v, now)}</AppText>
           <Button
-            title={`Undo ${describeEdit(v, now)}`}
+            title={actionLabel(v, now)}
             variant="secondary"
             onPress={() => restore(v)}
             loading={restoringVersion === v.version}
