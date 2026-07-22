@@ -7,11 +7,15 @@
 // It imports the SAME handler files Vercel runs (Node 22 strips the TS types),
 // so there is no second implementation to drift out of sync. Keys come from
 // .env.local, which is gitignored and never reaches the app bundle.
+import { register } from 'node:module';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 
 const PORT = Number(process.env.PORT ?? 8788);
+
+// Resolve the handlers' extensionless relative imports (see the loader).
+register('./ts-resolve-loader.mjs', import.meta.url);
 
 // --- env ---------------------------------------------------------------
 if (existsSync('.env.local')) {

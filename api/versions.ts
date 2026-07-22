@@ -6,8 +6,8 @@
 // for undo/history. Wire format frozen in src/types/contracts.ts.
 
 import type { GetVersionsResponse } from '../src/types/contracts';
-import { cors, type Req, type Res } from './_lib/http.ts';
-import { readVersions } from './_lib/store.ts';
+import { cors, type Req, type Res } from './_lib/http';
+import { readVersions } from './_lib/store';
 
 export default async function handler(req: Req, res: Res) {
   cors(res, 'GET');

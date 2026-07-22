@@ -21,9 +21,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { DocumentSnapshot, DocumentVersion } from '../../src/types/contracts';
-import { DOCUMENT_ID } from '../../src/types/contracts.ts';
-import { SAMPLE_MARKDOWN } from '../../src/lib/api/sample.ts';
-import { MAX_VERSIONS, newestFirst, pushVersion, sanitizeStack } from './versions.ts';
+import { DOCUMENT_ID } from '../../src/types/contracts';
+import { SAMPLE_MARKDOWN } from '../../src/lib/api/sample';
+import { MAX_VERSIONS, newestFirst, pushVersion, sanitizeStack } from './versions';
 
 export interface StoredState {
   snapshot: DocumentSnapshot;

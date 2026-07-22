@@ -12,8 +12,8 @@
 // hardening lives in api/_lib/text.ts and IS covered by jest.
 
 import type { EditRequest, EditResponse } from '../src/types/contracts';
-import { cors, parseBody, type Req, type Res } from './_lib/http.ts';
-import { checkRevision } from './_lib/text.ts';
+import { cors, parseBody, type Req, type Res } from './_lib/http';
+import { checkRevision } from './_lib/text';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 

@@ -9,8 +9,8 @@
 // leans on lives in api/_lib and IS covered by __tests__/server-logic.test.ts.
 
 import type { DocumentSnapshot, PutDocumentRequest } from '../src/types/contracts';
-import { cors, parseBody, type Req, type Res } from './_lib/http.ts';
-import { readSnapshot, writeSnapshot } from './_lib/store.ts';
+import { cors, parseBody, type Req, type Res } from './_lib/http';
+import { readSnapshot, writeSnapshot } from './_lib/store';
 
 /** A manuscript, not a novel series. Guards against a runaway client body. */
 const MAX_MARKDOWN_CHARS = 400_000;
