@@ -7,6 +7,7 @@ import { MarkdownEditor } from '@/components/editor';
 import type { MarkdownEditorHandle } from '@/components/editor/types';
 import { AppText, Button, Card, Screen } from '@/components/ui';
 import { applyDecisions, layoutDiff } from '@/lib/diff';
+import { chapterLabel, currentChapter } from '@/lib/session/chapters';
 import { describeEdit, lastEdit, restoreLabel } from '@/lib/session/history';
 import { runEdit } from '@/lib/session/runEdit';
 import { VOICE_STATUS_LABEL, useVoiceCapture } from '@/lib/voice';
@@ -129,9 +130,23 @@ export default function Home() {
   const writingHeader = (
     <Pressable
       onPress={dismissKeyboard}
-      style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}
+      style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
     >
-      <AppText variant="label">{SYNC_STATUS_LABEL[doc.status].toUpperCase()}</AppText>
+      {/* Left: where you can GO, named. Right: where you ARE, and whether it is
+          safe. Between them they say "chapter four of something" without putting
+          a word of the app's own branding above the writer's prose. */}
+      <Pressable
+        onPress={() => {
+          dismissKeyboard();
+          router.navigate('/chapters');
+        }}
+        hitSlop={10}
+      >
+        <AppText variant="label">‹ ALL CHAPTERS</AppText>
+      </Pressable>
+      <AppText variant="label">
+        {chapterLabel(currentChapter).toUpperCase()} · {SYNC_STATUS_LABEL[doc.status].toUpperCase()}
+      </AppText>
     </Pressable>
   );
 

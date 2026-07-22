@@ -46,3 +46,17 @@ test('relative time is coarse and human', () => {
   // A clock skew that puts a version in the future must not print "-3 minutes ago".
   expect(relativeTime(NOW + 60_000, NOW)).toBe('just now');
 });
+
+// --- the frame around the one real chapter ----------------------------------
+
+test('exactly one chapter is real, and it is the one the editor names', () => {
+  const { CHAPTERS, CURRENT_CHAPTER_ID, currentChapter, chapterLabel } =
+    require('@/lib/session/chapters') as typeof import('@/lib/session/chapters');
+
+  const available = CHAPTERS.filter((c) => c.available);
+  expect(available).toHaveLength(1);
+  expect(available[0].id).toBe(CURRENT_CHAPTER_ID);
+  // The header says "Chapter 4"; the chapter list must agree, or the breadcrumb
+  // is lying about where the writer is.
+  expect(chapterLabel(currentChapter)).toBe('Chapter 4');
+});
