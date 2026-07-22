@@ -42,9 +42,6 @@ export default function Home() {
   const router = useRouter();
   const [applying, setApplying] = useState(false);
   const [undoing, setUndoing] = useState(false);
-  // Tracks whether THIS recording was started by holding the button, so release
-  // knows whether to send. A tap-started recording is ended by its own control.
-  const holding = useRef(false);
   // Mirrors the page's focus so the top bar can offer the way out of the
   // keyboard. Tap-outside still works; this is the backup that is always in the
   // same place.
@@ -246,10 +243,10 @@ export default function Home() {
   const recording = voice.status === 'recording';
   const thinking = review.phase === 'thinking';
   const busy = thinking || voice.status === 'transcribing';
-  // A held recording keeps the button on screen (you are still holding it); a
-  // tapped one hands over to the panel, which owns Stop.
-  const panelVisible =
-    busy || (recording && !holding.current) || !!voice.error || review.phase === 'error';
+  // NOT while recording: the button itself becomes the recording control, so the
+  // happy path never summons a panel at all. The panel is for the things a
+  // button cannot say — thinking, and failures.
+  const panelVisible = busy || !!voice.error || review.phase === 'error';
 
   return (
     <Screen>
@@ -288,15 +285,6 @@ export default function Home() {
               <AppText variant="prose">“{review.pendingInstruction}”</AppText>
             )}
 
-            {/* Only while a tap started this recording — a held one ends by
-                letting go, and offering a Stop button for it would be two ways to
-                finish one gesture. */}
-            {recording && !holding.current && (
-              <>
-                <Button title="Stop and make the change" onPress={onStopSpeaking} />
-                <Button title="Discard" variant="ghost" onPress={voice.cancel} />
-              </>
-            )}
 
             {voice.error && (
               <>
@@ -328,19 +316,10 @@ export default function Home() {
             disabled={busy}
             recording={recording}
             durationSec={voice.durationSec}
-            onTap={() => {
+            onPress={() => {
               dismissKeyboard();
-              holding.current = false;
-              voice.start();
-            }}
-            onHoldStart={() => {
-              dismissKeyboard();
-              holding.current = true;
-              voice.start();
-            }}
-            onHoldEnd={() => {
-              holding.current = false;
-              onStopSpeaking();
+              if (recording) onStopSpeaking();
+              else voice.start();
             }}
           />
         </View>
