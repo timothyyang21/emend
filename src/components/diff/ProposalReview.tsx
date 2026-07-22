@@ -28,6 +28,7 @@ export function ProposalReview({
   onDecide,
   onDecideAll,
   onApply,
+  onApplyAll,
   onDiscard,
   applying,
 }: {
@@ -37,6 +38,8 @@ export function ProposalReview({
   onDecide: (hunkId: ID, decision: HunkDecision) => void;
   onDecideAll: (decision: HunkDecision) => void;
   onApply: () => void;
+  /** Accept every change and commit, in one tap. */
+  onApplyAll: () => void;
   onDiscard: () => void;
   applying?: boolean;
 }) {
@@ -53,8 +56,10 @@ export function ProposalReview({
     decisions
   );
 
+  const anyDecided = t.accepted > 0 || t.rejected > 0;
+
   return (
-    <View style={{ gap: tokens.space.md }}>
+    <View style={{ flex: 1 }}>
       <ConfirmDialog
         visible={confirming}
         title="Discard the proposed changes?"
@@ -72,6 +77,11 @@ export function ProposalReview({
       {/* Same shape as every other screen, and never leaves silently. */}
       <BackLink label="Chapter 4" onPress={() => setConfirming(true)} />
 
+      <ScrollView
+        contentContainerStyle={{ gap: tokens.space.md, paddingBottom: tokens.space.xxl }}
+        showsVerticalScrollIndicator={false}
+      >
+
       <Card>
         <AppText variant="label">YOU SAID</AppText>
         <AppText variant="prose">“{proposal.instruction}”</AppText>
@@ -80,44 +90,18 @@ export function ProposalReview({
       <Card>
         <AppText variant="label">CHANGES</AppText>
         <AppText variant="h2">{tallySentence(t)}</AppText>
-        {t.total > 1 && (
-          <>
-            {/* Shortcuts for setting every decision at once — deliberately
-                lighter than Apply. They change what is SELECTED; only Apply
-                touches the manuscript, and the weight says so. */}
-            <View style={{ flexDirection: 'row', gap: tokens.space.sm }}>
-              <Button
-                title={`Accept all ${t.total}`}
-                variant="secondary"
-                size="sm"
-                onPress={() => onDecideAll('accepted')}
-                disabled={applying}
-                style={{ flex: 1 }}
-              />
-              <Button
-                title="Reject all"
-                variant="ghost"
-                size="sm"
-                onPress={() => onDecideAll('rejected')}
-                disabled={applying}
-                style={{ flex: 1 }}
-              />
-            </View>
-          </>
-        )}
       </Card>
 
       <Card>
         <AppText variant="label">YOUR MANUSCRIPT, WITH THE CHANGES</AppText>
-        {/* Bounded so the change list below stays reachable on a phone. */}
-        <ScrollView style={{ maxHeight: 320 }} nestedScrollEnabled>
-          <DiffText
-            segments={segments}
-            decisions={decisions}
-            focusedId={focusedId}
-            onFocusHunk={setFocusedId}
-          />
-        </ScrollView>
+        {/* Full height, not a bounded inner scroller: the page scrolls now, and
+            a nested ScrollView inside it fights the outer one for the gesture. */}
+        <DiffText
+          segments={segments}
+          decisions={decisions}
+          focusedId={focusedId}
+          onFocusHunk={setFocusedId}
+        />
         <View style={{ flexDirection: 'row', gap: 14, marginTop: 4 }}>
           <Legend color={tokens.diff.deleteBg} label="coming out" />
           <Legend color={tokens.diff.insertBg} label="going in" />
@@ -167,6 +151,44 @@ export function ProposalReview({
           disabled={applying}
         />
       </Card>
+      </ScrollView>
+
+      {/* Pinned. The commit action must never be something you scroll to find —
+          on a long diff it was below every change in the list. */}
+      <View
+        style={{
+          paddingTop: tokens.space.md,
+          gap: tokens.space.sm,
+          borderTopWidth: 1,
+          borderTopColor: tokens.colors.border,
+          backgroundColor: tokens.colors.bg,
+        }}
+      >
+        <Button
+          title={
+            anyDecided
+              ? t.accepted === 0
+                ? 'Nothing accepted yet'
+                : `Apply ${t.accepted} change${t.accepted === 1 ? '' : 's'}`
+              : `Apply all ${t.total} change${t.total === 1 ? '' : 's'}`
+          }
+          onPress={anyDecided ? onApply : onApplyAll}
+          disabled={(anyDecided && t.accepted === 0) || applying}
+          loading={applying}
+        />
+        {anyDecided && t.pending > 0 && t.accepted > 0 && (
+          <AppText variant="muted">
+            {t.pending} you haven&apos;t decided on will be left as they were.
+          </AppText>
+        )}
+        <Button
+          title="Discard this edit"
+          variant="ghost"
+          size="sm"
+          onPress={() => setConfirming(true)}
+          disabled={applying}
+        />
+      </View>
     </View>
   );
 }

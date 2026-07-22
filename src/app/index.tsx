@@ -85,7 +85,10 @@ export default function Home() {
   }, [voice, review, doc.markdown, dictionary.terms]);
 
   const onApply = useCallback(async () => {
-    const { proposal, decisions } = review;
+    // Read the store, not this render's snapshot: "accept all, then apply" sets
+    // the decisions and applies in the same tap, and a captured snapshot would
+    // still hold the empty decision map — applying nothing at all.
+    const { proposal, decisions } = useProposal.getState();
     if (!proposal) return;
     setApplying(true);
     try {
@@ -100,6 +103,19 @@ export default function Home() {
       setApplying(false);
     }
   }, [review, doc, history]);
+
+  /**
+   * The fast path: accept every change and commit it in one tap.
+   *
+   * Safe to collapse into one control because it is not destructive — the whole
+   * edit lands as a single version, and Undo reverses it by name. The per-change
+   * controls are still there for anyone who wants them; this is the shortcut, not
+   * a replacement for the review.
+   */
+  const onApplyAll = useCallback(async () => {
+    review.decideAll('accepted');
+    await onApply();
+  }, [review, onApply]);
 
   /**
    * Undo the most recent accepted edit. Restoring is an ordinary edit: it writes
@@ -209,7 +225,7 @@ export default function Home() {
   // --- Review mode: the page scrolls, the editor is off screen -------------
   if (review.phase === 'reviewing' && review.proposal) {
     return (
-      <Screen scroll>
+      <Screen>
         {reviewHeader}
         <ProposalReview
           proposal={review.proposal}
@@ -218,6 +234,7 @@ export default function Home() {
           onDecide={review.decide}
           onDecideAll={review.decideAll}
           onApply={onApply}
+          onApplyAll={onApplyAll}
           onDiscard={review.discard}
           applying={applying}
         />
