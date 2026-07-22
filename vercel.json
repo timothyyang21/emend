@@ -3,6 +3,14 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "functions": {
-    "api/ai.ts": { "maxDuration": 60 }
+    "api/ai.ts": {
+      "maxDuration": 60
+    },
+    "api/transcribe.ts": {
+      "maxDuration": 60
+    },
+    "api/edit.ts": {
+      "maxDuration": 60
+    }
   }
 }

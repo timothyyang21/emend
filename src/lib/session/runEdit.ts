@@ -24,6 +24,23 @@ export class EditFailed extends Error {
   }
 }
 
+/**
+ * Make the revision's trailing newline match the base's.
+ *
+ * Found by running a real model edit rather than a hand-written one: asked to
+ * rename a character, the model returned the document correctly changed but with
+ * the final newline dropped. That diffs into a third hunk — "delete a line
+ * break" — sitting underneath the two real ones.
+ *
+ * It is not a change the writer asked for, they cannot evaluate it, and it
+ * teaches them that the review list contains junk. Trailing whitespace is not
+ * prose, so it is normalised away before the diff ever sees it.
+ */
+export function matchTrailingNewline(base: string, revised: string): string {
+  const baseTail = /\n*$/.exec(base)?.[0] ?? '';
+  return revised.replace(/\n*$/, baseTail);
+}
+
 let counter = 0;
 
 export async function runEdit(
@@ -34,9 +51,9 @@ export async function runEdit(
   const trimmed = instruction.trim();
   if (!trimmed) throw new EditFailed("I didn't catch an instruction.");
 
-  let revisedMarkdown: string;
+  let raw: string;
   try {
-    revisedMarkdown = await requestEdit(
+    raw = await requestEdit(
       { markdown, instruction: trimmed, dictionary: options.dictionary },
       options.signal
     );
@@ -44,10 +61,11 @@ export async function runEdit(
     throw new EditFailed(e instanceof Error ? e.message : 'The edit could not be made.');
   }
 
-  if (typeof revisedMarkdown !== 'string' || revisedMarkdown.trim().length === 0) {
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
     throw new EditFailed('The model returned an empty document, so nothing was changed.');
   }
 
+  const revisedMarkdown = matchTrailingNewline(markdown, raw);
   const hunks = computeHunks(markdown, revisedMarkdown);
 
   // A no-op is a legitimate outcome, not an error — "make it more ominous" can

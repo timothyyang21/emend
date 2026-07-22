@@ -123,7 +123,21 @@ test('a change that is mid-word only in the REVISED text still widens', () => {
 // ---------------------------------------------------------------------------
 
 test('a global rename skips near-substrings and stays one hunk per occurrence', () => {
-  const base = SAMPLE_MARKDOWN;
+  // A local fixture, not the seed document: this test is about the near-substring
+  // trap specifically, and tying it to whatever prose the app happens to ship
+  // means a copy change silently deletes the coverage.
+  const base = [
+    'Susan walked out along the terrace while the light was still good.',
+    '',
+    "She had not expected the house to be so quiet. Susan's aunt had written of company.",
+    '',
+    'At the far end stood Susannah Vane — her cousin, and no relation she had ever',
+    'been glad of.',
+    '',
+    '"You are wanted," she said. "Susan\'s things have been moved to the east wing."',
+    '',
+  ].join('\n');
+
   // Only the standalone name (and its possessive) is renamed; "Susannah" is a
   // different character and must survive untouched.
   const revised = base.replace(/Susan(?!nah)/g, 'Janet');
@@ -131,7 +145,7 @@ test('a global rename skips near-substrings and stays one hunk per occurrence', 
 
   const hunks = expectRoundTrips(base, revised);
 
-  // Three occurrences of the standalone name in the sample → three decisions.
+  // Three occurrences of the standalone name → three decisions.
   expect(hunks).toHaveLength(3);
   for (const h of hunks) {
     expect(h).toMatchObject({ kind: 'replace', before: 'Susan', after: 'Janet' });
@@ -297,12 +311,17 @@ test('layoutDiff emits no zero-length equal segments', () => {
 test('a multi-paragraph markdown edit stays a small, plausible number of hunks', () => {
   const base = SAMPLE_MARKDOWN;
   const revised = base
-    .replace('# The Long Gallery', '# The Long Gallery\n\n*A fragment.*')
+    .replace('was Thomas’s kingdom', 'had been Thomas’s kingdom')
+    .replace("was Thomas's kingdom", "had been Thomas's kingdom")
+    .replace('They were too full of her son.', 'They were too full of him.')
     .replace(
-      'The rain had stopped by four, and Susan walked out along the terrace while the\nlight was still good.',
-      'The rain had not stopped by four, and Susan hurried out along the terrace while\nthe light failed.'
-    )
-    .replace('She had not expected the house to be so quiet.', 'The house was far too quiet.');
+      'For a year, the forest stood silent and empty.',
+      'For a year, the forest stood silent.'
+    );
+
+  // Guard the guard: if a copy edit to the seed makes these replacements no-op,
+  // the test would "pass" against an unchanged document and prove nothing.
+  expect(revised).not.toBe(base);
 
   const hunks = expectRoundTrips(base, revised);
 
@@ -311,9 +330,13 @@ test('a multi-paragraph markdown edit stays a small, plausible number of hunks',
   expect(hunks.length).toBeGreaterThan(2);
   expect(hunks.length).toBeLessThanOrEqual(10);
 
-  // And a whole-manuscript rename must not turn into 40 decisions.
-  const renamed = computeHunks(base, base.replace(/Susan(?!nah)/g, 'Janet'));
-  expect(renamed).toHaveLength(3);
+  // And a whole-manuscript rename must not turn into 40 decisions. Two Susans
+  // in the seed → two decisions.
+  const renamed = computeHunks(base, base.replaceAll('Susan', 'Janet'));
+  expect(renamed).toHaveLength(2);
+  for (const h of renamed) {
+    expect(h).toMatchObject({ before: 'Susan', after: 'Janet' });
+  }
 });
 
 // ---------------------------------------------------------------------------
