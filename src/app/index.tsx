@@ -1,94 +1,142 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 
-import { AppText, Button, Card, Screen, tokens } from '@/components/ui';
-import { VOICE_STATUS_LABEL, transcribeEndpoint, useVoiceCapture } from '@/lib/voice';
+import { ProposalReview } from '@/components/diff';
+import { MarkdownEditor } from '@/components/editor/MarkdownEditor';
+import { AppText, Button, Card, Screen } from '@/components/ui';
+import { applyDecisions, layoutDiff } from '@/lib/diff';
+import { runEdit } from '@/lib/session/runEdit';
+import { VOICE_STATUS_LABEL, useVoiceCapture } from '@/lib/voice';
+import { useDoc } from '@/store/doc';
+import { REVIEW_PHASE_LABEL, useProposal } from '@/store/proposal';
+import { SYNC_STATUS_LABEL } from '@/types/contracts';
 
 /**
- * VOICE SPIKE — proves capture → transcript on a real device before anything
- * else is built on top of it. This screen is scaffolding: it becomes the real
- * document screen once the slice lands.
+ * Emend — the whole product on one screen.
+ *
+ *   the manuscript  →  speak an instruction  →  review the diff  →  accept or
+ *   reject each change  →  it saves.
+ *
+ * The screen never mutates the manuscript directly. Applying a proposal is the
+ * single path from AI output to the document, and it runs through
+ * `applyDecisions`, which only honours hunks the writer explicitly accepted.
  */
 export default function Home() {
+  const doc = useDoc();
+  const review = useProposal();
   const voice = useVoiceCapture();
-  const [transcript, setTranscript] = useState<string | null>(null);
-  const [history, setHistory] = useState<string[]>([]);
+  const [applying, setApplying] = useState(false);
 
-  const configured = transcribeEndpoint() !== null;
-  const busy = voice.status === 'transcribing' || voice.status === 'permission';
+  useEffect(() => {
+    doc.load();
+    // Cold start only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  async function onStop() {
-    const text = await voice.stop();
-    if (text) {
-      setTranscript(text);
-      setHistory((h) => [text, ...h].slice(0, 5));
+  const onStopSpeaking = useCallback(async () => {
+    const instruction = await voice.stop();
+    if (!instruction) return; // voice surfaces its own error in words
+
+    review.begin(instruction);
+    try {
+      const proposal = await runEdit(doc.markdown, instruction);
+      if (proposal.hunks.length === 0) {
+        review.fail(`Nothing changed — “${instruction}” left the text as it was.`);
+        return;
+      }
+      review.present(proposal);
+    } catch (e) {
+      review.fail(e instanceof Error ? e.message : 'The edit could not be made.');
     }
-  }
+  }, [voice, review, doc.markdown]);
+
+  const onApply = useCallback(async () => {
+    const { proposal, decisions } = review;
+    if (!proposal) return;
+    setApplying(true);
+    try {
+      const next = applyDecisions(proposal.baseMarkdown, proposal.hunks, decisions);
+      doc.setMarkdown(next, proposal.instruction);
+      await doc.flush();
+      review.discard();
+    } finally {
+      setApplying(false);
+    }
+  }, [review, doc]);
+
+  const recording = voice.status === 'recording';
+  const thinking = review.phase === 'thinking';
 
   return (
     <Screen scroll>
-      <AppText variant="h1">Emend</AppText>
-      <AppText variant="muted">Voice spike — say an editing instruction.</AppText>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <AppText variant="h1">Emend</AppText>
+        <AppText variant="label">{SYNC_STATUS_LABEL[doc.status].toUpperCase()}</AppText>
+      </View>
+      {doc.error && <AppText variant="muted">{doc.error}</AppText>}
 
-      {!configured && (
+      {review.phase === 'reviewing' && review.proposal ? (
+        <ProposalReview
+          proposal={review.proposal}
+          segments={layoutDiff(review.proposal.baseMarkdown, review.proposal.hunks)}
+          decisions={review.decisions}
+          onDecide={review.decide}
+          onDecideAll={review.decideAll}
+          onApply={onApply}
+          onDiscard={review.discard}
+          applying={applying}
+        />
+      ) : (
         <Card>
-          <AppText variant="h2">Voice is not configured</AppText>
-          <AppText variant="muted">
-            EXPO_PUBLIC_TRANSCRIBE_ENDPOINT is unset, so there is nowhere to send audio. Set it in
-            .env.local and restart Metro.
-          </AppText>
-        </Card>
-      )}
-
-      <Card>
-        {/* Fixed-height status line: a label that appears and disappears would
-            shove the button down mid-tap. */}
-        <View style={{ height: 46, justifyContent: 'center' }}>
-          <AppText variant="h2">{VOICE_STATUS_LABEL[voice.status]}</AppText>
-          {voice.status === 'recording' && (
-            <AppText variant="muted">{voice.durationSec.toFixed(1)}s</AppText>
-          )}
-        </View>
-
-        {voice.status === 'recording' ? (
-          <>
-            <Button title="Stop and transcribe" onPress={onStop} />
-            <Button title="Discard" variant="ghost" onPress={voice.cancel} />
-          </>
-        ) : (
-          <Button
-            title={busy ? 'Working…' : 'Start speaking'}
-            onPress={voice.start}
-            loading={busy}
-            disabled={!configured || busy}
+          <MarkdownEditor
+            markdown={doc.markdown}
+            onChangeMarkdown={(md) => doc.setMarkdown(md)}
+            editable={!thinking}
           />
-        )}
-      </Card>
-
-      {voice.error && (
-        <Card>
-          <AppText variant="h2" style={{ color: tokens.colors.danger }}>
-            {voice.error}
-          </AppText>
-          <Button title="Try again" variant="secondary" onPress={voice.reset} />
         </Card>
       )}
 
-      {transcript && (
+      {review.phase !== 'reviewing' && (
         <Card>
-          <AppText variant="label">HEARD</AppText>
-          <AppText variant="prose">{transcript}</AppText>
-        </Card>
-      )}
-
-      {history.length > 1 && (
-        <Card>
-          <AppText variant="label">EARLIER</AppText>
-          {history.slice(1).map((h, i) => (
-            <AppText key={`${i}-${h.slice(0, 12)}`} variant="muted">
-              {h}
+          {/* Fixed footprint: a status line that appears and disappears would
+              shove the mic button out from under the writer's thumb. */}
+          <View style={{ height: 46, justifyContent: 'center' }}>
+            <AppText variant="h2">
+              {thinking ? REVIEW_PHASE_LABEL.thinking : VOICE_STATUS_LABEL[voice.status]}
             </AppText>
-          ))}
+            {recording && <AppText variant="muted">{voice.durationSec.toFixed(1)}s</AppText>}
+          </View>
+
+          {review.pendingInstruction && (thinking || review.phase === 'error') && (
+            <AppText variant="prose">“{review.pendingInstruction}”</AppText>
+          )}
+
+          {recording ? (
+            <>
+              <Button title="Stop and make the change" onPress={onStopSpeaking} />
+              <Button title="Discard" variant="ghost" onPress={voice.cancel} />
+            </>
+          ) : (
+            <Button
+              title={thinking ? 'Working…' : 'Speak an instruction'}
+              onPress={voice.start}
+              loading={thinking || voice.status === 'transcribing'}
+              disabled={thinking || voice.status === 'transcribing'}
+            />
+          )}
+
+          {voice.error && (
+            <>
+              <AppText variant="muted">{voice.error}</AppText>
+              <Button title="Try again" variant="secondary" onPress={voice.reset} />
+            </>
+          )}
+          {review.phase === 'error' && review.error && (
+            <>
+              <AppText variant="muted">{review.error}</AppText>
+              <Button title="Back to the manuscript" variant="secondary" onPress={review.discard} />
+            </>
+          )}
         </Card>
       )}
     </Screen>
