@@ -2,6 +2,7 @@
  * Client for our own /api/transcribe function. The OpenRouter key lives there,
  * never here — EXPO_PUBLIC_* vars ship inside the public bundle.
  */
+import { apiBase } from '@/lib/api';
 
 export class TranscriptionError extends Error {
   readonly status?: number;
@@ -12,9 +13,20 @@ export class TranscriptionError extends Error {
   }
 }
 
-/** Returns null when transcription is not configured for this build. */
+/**
+ * Returns null only when there is genuinely no backend.
+ *
+ * The explicit var exists for native, which has no origin to be relative to.
+ * Everything else derives from the API base — because .env.local is gitignored,
+ * so a Vercel build has never seen EXPO_PUBLIC_TRANSCRIBE_ENDPOINT and the web
+ * app reported "Voice is not configured in this build" while its own /api/
+ * transcribe endpoint was sitting right there, working.
+ */
 export function transcribeEndpoint(): string | null {
-  return process.env.EXPO_PUBLIC_TRANSCRIBE_ENDPOINT ?? null;
+  const explicit = process.env.EXPO_PUBLIC_TRANSCRIBE_ENDPOINT;
+  if (explicit) return explicit;
+  const base = apiBase();
+  return base === null ? null : `${base}/api/transcribe`;
 }
 
 export async function transcribeAudio(
