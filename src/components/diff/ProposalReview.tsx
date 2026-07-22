@@ -80,22 +80,27 @@ export function ProposalReview({
         <AppText variant="h2">{tallySentence(t)}</AppText>
         {t.total > 1 && (
           <>
-            {/* The happy path, and it looks like it: full width, primary weight.
-                Most edits are accepted wholesale — making that the loudest
-                control is honest about what usually happens. */}
-            <Button
-              title={`Accept all ${t.total} changes`}
-              onPress={() => onDecideAll('accepted')}
-              disabled={applying}
-            />
-            {/* Deliberately quieter, and deliberately still here. */}
-            <Button
-              title="Reject all"
-              variant="ghost"
-              size="sm"
-              onPress={() => onDecideAll('rejected')}
-              disabled={applying}
-            />
+            {/* Shortcuts for setting every decision at once — deliberately
+                lighter than Apply. They change what is SELECTED; only Apply
+                touches the manuscript, and the weight says so. */}
+            <View style={{ flexDirection: 'row', gap: tokens.space.sm }}>
+              <Button
+                title={`Accept all ${t.total}`}
+                variant="secondary"
+                size="sm"
+                onPress={() => onDecideAll('accepted')}
+                disabled={applying}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Reject all"
+                variant="ghost"
+                size="sm"
+                onPress={() => onDecideAll('rejected')}
+                disabled={applying}
+                style={{ flex: 1 }}
+              />
+            </View>
           </>
         )}
       </Card>
@@ -117,9 +122,9 @@ export function ProposalReview({
         </View>
       </Card>
 
-      {/* Ranked below Accept all, never removed: deciding change by change is
-          the whole trust argument of this product. */}
-      <AppText variant="label">OR DECIDE ONE AT A TIME</AppText>
+      {/* Secondary to Apply, never removed: deciding change by change is the
+          whole trust argument of this product. */}
+      <AppText variant="label">DECIDE ONE AT A TIME</AppText>
 
       {proposal.hunks.map((h) => (
         <Card key={h.id}>
@@ -134,6 +139,9 @@ export function ProposalReview({
       ))}
 
       <Card>
+        {/* THE dominant action. Everything above only selects; this is the one
+            control that writes to the manuscript, and it names its exact count
+            so it can never be a guess. */}
         <Button
           title={
             t.accepted === 0

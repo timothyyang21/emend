@@ -5,7 +5,7 @@ import { Pressable, View } from 'react-native';
 import { ProposalReview } from '@/components/diff';
 import { MarkdownEditor } from '@/components/editor';
 import type { MarkdownEditorHandle } from '@/components/editor/types';
-import { AppText, Button, Card, Screen } from '@/components/ui';
+import { AppText, Button, Card, Screen, tokens } from '@/components/ui';
 import { applyDecisions, layoutDiff } from '@/lib/diff';
 import { chapterLabel, currentChapter } from '@/lib/session/chapters';
 import { describeEdit, lastEdit, restoreLabel } from '@/lib/session/history';
@@ -105,6 +105,8 @@ export default function Home() {
     }
   }, [doc, history]);
 
+  const undoTarget = lastEdit(history.versions);
+
   /**
    * The review screen is secondary chrome, so it can afford to say its own name.
    * The editor cannot — see the writing-mode header below.
@@ -150,6 +152,38 @@ export default function Home() {
     </Pressable>
   );
 
+  /**
+   * Undo and History belong UP HERE, reachable mid-sentence. Down beside the mic
+   * they were controls about the past filed under the control for making new
+   * changes, and you had to leave the keyboard to reach them.
+   */
+  const writingControls = (
+    <View style={{ flexDirection: 'row', gap: tokens.space.sm }}>
+      {undoTarget && (
+        <Button
+          title={`Undo ${describeEdit(undoTarget, Date.now())}`}
+          variant="secondary"
+          size="sm"
+          onPress={onUndo}
+          loading={undoing}
+          disabled={undoing}
+          style={{ flex: 1 }}
+        />
+      )}
+      <Button
+        title="History"
+        variant="ghost"
+        size="sm"
+        onPress={() => {
+          dismissKeyboard();
+          router.navigate('/history');
+        }}
+        disabled={undoing}
+        style={undoTarget ? undefined : { flex: 1 }}
+      />
+    </View>
+  );
+
   // --- Review mode: the page scrolls, the editor is off screen -------------
   if (review.phase === 'reviewing' && review.proposal) {
     return (
@@ -173,11 +207,11 @@ export default function Home() {
   const recording = voice.status === 'recording';
   const thinking = review.phase === 'thinking';
   const busy = thinking || voice.status === 'transcribing';
-  const undoTarget = lastEdit(history.versions);
 
   return (
     <Screen>
       {writingHeader}
+      {writingControls}
       {doc.error && <AppText variant="muted">{doc.error}</AppText>}
 
       {/* Bounded box — the editor scrolls itself. */}
@@ -221,29 +255,6 @@ export default function Home() {
             disabled={busy}
           />
         )}
-
-        {/* Undo names the edit it reverses, so it is never a guess about what
-            "undo" would do to your manuscript. Hidden entirely when the stack is
-            empty rather than shown disabled — a dead control is worse than none. */}
-        {undoTarget && !recording && (
-          <Button
-            title={`Undo ${describeEdit(undoTarget, Date.now())}`}
-            variant="secondary"
-            onPress={onUndo}
-            loading={undoing}
-            disabled={busy || undoing}
-          />
-        )}
-
-        <Button
-          title="History"
-          variant="ghost"
-          onPress={() => {
-            dismissKeyboard();
-            router.navigate('/history');
-          }}
-          disabled={undoing}
-        />
 
         {voice.error && (
           <>
