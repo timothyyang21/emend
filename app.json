@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "sotto",
-    "slug": "sotto",
+    "name": "Emend",
+    "slug": "emend",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "sotto",
+    "scheme": "emend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "android": {
@@ -31,7 +31,13 @@
           "imageWidth": 76
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Emend uses the microphone to hear your editing instructions."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
@@ -42,6 +48,10 @@
     },
     "runtimeVersion": {
       "policy": "sdkVersion"
+    },
+    "ios": {
+      "bundleIdentifier": "com.timyang.emend",
+      "supportsTablet": true
     }
   }
 }

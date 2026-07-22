@@ -1,4 +1,36 @@
-# Cactus Sprint Rig 🌵
+# Emend
+
+> Speech-to-edit for prose: speak an instruction, review the change as a diff, accept or reject.
+> Nothing the AI writes reaches your manuscript without your say-so.
+
+<!-- TODO(readme): this file is still the rig manual below. Rewrite as the Emend
+     README (build steps, architecture, AI-use notes from DEVLOG) in the final pass. -->
+
+## Product
+
+### Design
+
+Emend's look is **spring-clear Regency** — light, literary, elegant. That's deliberate: this is a
+writer-facing tool for an AI writing company, so the craft should signal respect for prose. Most
+POCs ship cold and utilitarian; here the taste is part of the product argument.
+
+It's one design language, not a skin. The icon's palette — ivory, champagne gold, blush rose,
+sage — is the palette used across the app, including the diff itself, where **deletions sit on
+rose and additions on sage**. The icon is the design system in miniature, not decoration.
+
+I art-directed three versions:
+
+| <img src="docs/icons/v1.png" width="110"> | <img src="docs/icons/v2.png" width="110"> | <img src="docs/icons/v3.png" width="110"> |
+|:--:|:--:|:--:|
+| v1 — subtle single sprig | **v2 — chosen** | v3 — florals framed in the corners |
+
+**v2** wins: a single bold bloom resting against the serif E reads like a writer's pen laid across
+the letterform — tool and craft in one mark.
+
+**AI candor:** the icons were generated and iterated with AI as vector art. The taste calls — vibe,
+palette, scale, placement, the pen read — were mine.
+
+## Rig manual (inherited)
 
 A reusable Expo + TypeScript rig for a **2-hour, from-scratch React Native POC**. Scaffold a
 clean app, freeze shared contracts, fan out 4–6 parallel agents in git worktrees, integrate

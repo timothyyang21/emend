@@ -1,61 +1,81 @@
-# PLAN — <app name>  (fill in when the spec lands)
+# PLAN — Emend
 
-> Written by the integrator BEFORE fan-out. Frozen contracts + ownership so agents
-> never step on each other. Every agent reads this + `CLAUDE.md` at the start of its task.
-> The example rows use a "mood logger" — replace them with your app.
+> Frozen contracts + ownership so agents never step on each other.
+> Every agent reads this + `CLAUDE.md` at the start of its task.
+
+## The product (do not relitigate)
+
+Emend is a **trust surface for editing prose by voice**. The loop:
+
+```
+speak an instruction → LLM returns the FULL revised markdown → diff it against
+what the writer had → they accept or reject each change → autosave
+```
+
+**Nothing the AI writes reaches the manuscript unreviewed.** The reviewable diff
+IS the product; the editor and sync are scaffolding around it.
 
 ## Vertical slice (build this end-to-end FIRST)
 
-**The one flow that must work:** _e.g. "Log a mood → see it in the history list → persists across reloads."_
+**The one flow that must work:** open with the sample manuscript → tap the mic and say
+"change Susan's name to Janet everywhere" → see the proposed change highlighted inline →
+accept it → the document updates and autosaves.
 
-**Ship the structure, not just the screen.** The slice includes the screens above the
-working surface (item → collection → library → settings) even when only one item is real,
-each with a back control that names where it goes. Building only the interesting screen
-reads as a prototype; the frame is what makes it read as software.
+**Cut list (explicitly NOT doing):** auth, multiple documents, collaboration, hands-free
+("always listening"), offline queueing, streaming the edit response.
 
-**Cut list (explicitly NOT doing in 2h):** _e.g. auth, editing entries, charts, settings._
+**Extra credit, in this order, ONLY after the slice is clean:** undo/history off the
+version stack → dictionary (proper-noun list injected into the edit prompt).
 
-## Contracts (frozen)
+## Contracts (FROZEN)
 
-The real contract is code: **`src/types/contracts.ts`** — integrator-owned, **frozen after fan-out**.
-Every agent imports from `@/types/contracts` and never edits it.
+**`src/types/contracts.ts`** — integrator-owned, **frozen as of fan-out**. Every agent
+imports from `@/types/contracts` and never edits it. If you believe a contract is wrong,
+STOP and tell the integrator; do not work around it.
+
+Key decisions already encoded there:
+
+- **Markdown is the source of truth**, not HTML. The diff must be legible to a human
+  deciding what happens to their prose; an HTML diff is tag noise.
+- **`Hunk` and `HunkDecision` are separate.** A hunk is what the AI proposed; a decision
+  is what the writer said about it. One field must not answer two questions.
+- **`pending` counts as NOT applied.** Silence is not consent.
 
 ## Ownership map (one namespace per agent — never overlap)
 
-| Agent | Owns (folders/files)                                          | Piece / deliverable              | Port |
-|-------|--------------------------------------------------------------|----------------------------------|------|
-| A     | `src/app/index.tsx`, `src/components/log/`                    | Mood entry screen + components   | 8082 |
-| B     | `src/store/mood.ts`, `src/lib/mood/`                          | Mood store + logic (persisted)   | 8083 |
-| C     | `src/app/history.tsx`, `src/components/history/`              | History list + empty state       | 8084 |
-| **—** | `src/app/_layout.tsx`, `src/store/index.ts`, `src/components/ui/*`, `src/types/contracts.ts` | **INTEGRATOR ONLY — frozen** | 8081 |
-| **—** | `app.json`, `assets/` (icon, splash, accent color) | **App-shell brand — INTEGRATOR ONLY.** Real icon + app name + splash. Not a feature; owned here so it can't fall through the cracks. Gated by `npm run verify:shell`. | — |
-| **—** | `src/app/` route skeleton | **Structure above the working surface — INTEGRATOR ONLY.** The screens *around* the one interesting screen: item → collection → library → settings, even when only one item is real. Every screen gets a back control that NAMES its destination. Costs little; it's the difference between software and a demo. | — |
-| **—** | `src/lib/writing/`, `src/lib/selection/`, `src/components/writing/`, `src/components/ui/Icon.tsx`, `src/components/ui/SelectableList.tsx` | **Writing kit — INTEGRATOR-owned, reusable.** Bulk-select/delete, dictation (web), photo attach, autosave, word count, export, AI-assist stub. Agents CONSUME via `@/components/ui` + `@/lib/writing/*`; don't rebuild. | — |
+| Agent | Owns (folders/files) | Piece / deliverable |
+|-------|----------------------|---------------------|
+| **A** | `src/lib/diff/`, `__tests__/diff*.test.ts` | Diff engine: `computeHunks`, `layoutDiff`, `applyDecisions` + tests. Pure functions, zero UI. |
+| **B** | `api/document.ts`, `api/versions.ts`, `api/edit.ts`, `api/_lib/` | Server endpoints + version stack. Pure backend. |
+| **C** | `src/store/doc.ts`, `src/lib/doc/`, `src/components/editor/` | Doc store + debounced autosave + webview rich-text editor. |
+| **—** | `src/types/contracts.ts`, `src/app/*`, `src/store/index.ts`, `src/components/ui/*`, `src/lib/voice/`, `src/lib/api/`, `src/components/diff/`, `scripts/*`, `api/transcribe.ts` | **INTEGRATOR ONLY — frozen to agents.** |
+| **—** | `app.json`, `assets/`, `docs/icons/`, `README.md` | **App-shell brand — INTEGRATOR ONLY.** Icon + name shipped; gated by `npm run verify:shell`. |
 
-> **Decisions become owned rows — not chat conclusions.** A name, art direction, or
-> any cross-cutting deliverable decided in conversation must land as a row in this map
-> with an owner, or it silently defaults (this is why the app icon stayed the Expo stock
-> art on the first dress run). If it isn't feature code, ask "who owns it?" before fan-out.
+**`src/lib/api/` is written and merged already** — Agent C imports it directly and is NOT
+blocked on Agent B. B owns only the server side of those endpoints.
 
 ## Definition of Done (per piece)
 
-- **Testable pieces** (store / logic / data / API / types — e.g. Agent B): `npm run verify` passes **+ a quick jest test** for the core logic. Looser leash.
-- **UI pieces** (e.g. Agents A, C): `npm run verify` passes (typecheck + lint + bundle) **+ renders on the ONE sim/phone** for the integrator to judge feel. Under close eye.
-- Nobody edits a frozen surface. Nobody puts device/account credentials in an agent.
+- **A and B** (logic / server): `npm run verify` **+ jest tests for the core logic**. A's
+  engine is the highest-value thing in the build — test the traps, not the happy path.
+- **C** (UI + store): `npm run verify` **+ it renders on the sim/phone** for the integrator
+  to judge feel.
+- Nobody edits a frozen surface. Nobody touches another agent's namespace.
+- Nobody handles device or account credentials.
 
 ## Integration order (sequential merges — keep main green)
 
-1. **Integrator:** skeleton vertical slice (nav + one screen + store wired + persistence) **+ brand the shell** — real icon (`assets/images/icon.png`), app name (`app.json`), splash color. Do it here, not in the final polish, so it's never the thing cut at minute 115. Confirm with `npm run verify:shell`. Get the core flow green FIRST. Boot the sim with `npm run go` so you follow along live from the first render.
-2. **B** (store/logic) → `wt-merge` → others `wt-sync`.
-3. **A** (entry screen) → `wt-merge` → others `wt-sync`.
-4. **C** (history) → `wt-merge`.
-5. **Integrator:** polish pass — make ONE thing feel genuinely good.
+1. **Integrator:** contracts frozen, `@/lib/api` client, voice proven on device. ✅ done
+2. **A** (diff engine) → `wt-merge` → others `wt-sync`. First, because the screen needs it.
+3. **B** (server) → `wt-merge` → others `wt-sync`.
+4. **C** (editor + store) → `wt-merge`.
+5. **Integrator:** wire the slice end to end, then the polish pass (`src/theme/emend.ts`
+   is recorded and waiting — see the recipe at the bottom of that file).
 
 ## Agent rules (every agent, every task)
 
 1. Read this `PLAN.md` + `CLAUDE.md` first.
 2. Import shared types from `@/types/contracts`. Do **not** edit contracts or any frozen surface.
 3. Work **only** inside your owned namespace.
-4. Run `npm run verify` before saying "done"; logic pieces add a jest test.
-5. After each merge to main, run `scripts/wt-sync.sh <you>` to pull latest.
-6. Never handle device/account credentials — packaging is the integrator's job.
+4. Run `npm run verify` before saying "done"; A and B add jest tests.
+5. If a contract blocks you, STOP and report — do not invent a workaround.
