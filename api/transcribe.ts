@@ -13,11 +13,29 @@ const MODEL = 'google/gemini-2.5-flash';
 const MAX_BASE64_CHARS = 6_000_000;
 const ALLOWED_FORMATS = ['wav', 'mp3', 'm4a', 'aac', 'ogg', 'flac'];
 
-const PROMPT =
+const BASE_PROMPT =
   'Transcribe this audio verbatim. It is a short editing instruction spoken by a ' +
   'writer about their manuscript. Reply with the transcript only — no commentary, ' +
   'no quotation marks, no preamble. If the audio contains no speech, reply with ' +
   'nothing at all.';
+
+/**
+ * Proper nouns from the writer's dictionary, as a spelling hint.
+ *
+ * This is the layer where a name actually gets lost. "Janet" comes back as
+ * "Janette", the edit call then faithfully applies "Janette", and the dictionary
+ * never gets a say — because by then the instruction genuinely says Janette, and
+ * an explicit instruction is meant to outrank the list. Guarding only the edit
+ * call guards the wrong end of the pipe.
+ */
+function namesPrompt(dictionary: string[]): string {
+  if (dictionary.length === 0) return '';
+  return (
+    '\n\nThese names appear in this writer\'s book. If you hear one of them, spell ' +
+    'it EXACTLY as written here, never a variant or a more common form:\n' +
+    dictionary.map((t) => `- ${t}`).join('\n')
+  );
+}
 
 type Req = { method?: string; body?: unknown };
 type Res = {
@@ -54,7 +72,16 @@ export default async function handler(req: Req, res: Res) {
     res.status(400).json({ error: 'invalid JSON body' });
     return;
   }
-  const { audioBase64, format } = (raw ?? {}) as { audioBase64?: string; format?: string };
+  const { audioBase64, format, dictionary } = (raw ?? {}) as {
+    audioBase64?: string;
+    format?: string;
+    dictionary?: string[];
+  };
+
+  const names =
+    Array.isArray(dictionary) && dictionary.every((t) => typeof t === 'string')
+      ? dictionary.map((t) => t.trim()).filter(Boolean).slice(0, 200)
+      : [];
 
   if (typeof audioBase64 !== 'string' || audioBase64.length === 0) {
     res.status(400).json({ error: 'audioBase64 required' });
@@ -80,7 +107,7 @@ export default async function handler(req: Req, res: Res) {
           {
             role: 'user',
             content: [
-              { type: 'text', text: PROMPT },
+              { type: 'text', text: BASE_PROMPT + namesPrompt(names) },
               { type: 'input_audio', input_audio: { data: audioBase64, format: fmt } },
             ],
           },
@@ -107,6 +134,7 @@ export default async function handler(req: Req, res: Res) {
     // The model is told to answer with nothing when there is no speech; an empty
     // transcript is a legitimate result, not an error. The UI says "I didn't
     // catch that" rather than pushing an empty instruction into the edit call.
+    if (names.length > 0) console.log('[transcribe] ok (%d name hints)', names.length);
     res.status(200).json({ text: text.trim() });
   } catch (e) {
     console.error('[transcribe] request failed:', e);

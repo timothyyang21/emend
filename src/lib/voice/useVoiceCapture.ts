@@ -4,7 +4,7 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { readRecordingAsBase64, VOICE_AUDIO_FORMAT, VOICE_RECORDING_OPTIONS } from './recording';
 import { TranscriptionError, transcribeAudio } from './transcribe';
@@ -40,7 +40,13 @@ export type VoiceCapture = {
   reset: () => void;
 };
 
-export function useVoiceCapture(): VoiceCapture {
+export function useVoiceCapture(options: { dictionary?: string[] } = {}): VoiceCapture {
+  // Held in a ref so adding a name never rebuilds start/stop mid-recording.
+  const dictionary = useRef<string[]>(options.dictionary ?? []);
+  useEffect(() => {
+    dictionary.current = options.dictionary ?? [];
+  }, [options.dictionary]);
+
   const recorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
   const recorderState = useAudioRecorderState(recorder, 250);
   const [status, setStatus] = useState<VoiceStatus>('idle');
@@ -94,7 +100,7 @@ export function useVoiceCapture(): VoiceCapture {
       }
       setStatus('transcribing');
       const audioBase64 = await readRecordingAsBase64(uri);
-      const text = await transcribeAudio(audioBase64, VOICE_AUDIO_FORMAT);
+      const text = await transcribeAudio(audioBase64, VOICE_AUDIO_FORMAT, dictionary.current);
       if (!text) {
         // Not an error state: the mic worked, there was just no speech. Saying
         // "failed" here would send the writer debugging a microphone that is fine.

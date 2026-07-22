@@ -20,6 +20,8 @@ export function transcribeEndpoint(): string | null {
 export async function transcribeAudio(
   audioBase64: string,
   format: string,
+  /** Proper nouns from the writer's dictionary, so speech-to-text spells them right. */
+  dictionary: string[] = [],
   signal?: AbortSignal
 ): Promise<string> {
   const endpoint = transcribeEndpoint();
@@ -32,7 +34,7 @@ export async function transcribeAudio(
     res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ audioBase64, format }),
+      body: JSON.stringify({ audioBase64, format, dictionary }),
       signal,
     });
   } catch (e) {

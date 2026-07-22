@@ -45,6 +45,18 @@ A character's name is a fact about the *book*, so the story bible belongs beside
 chapter index, not inside Chapter 4 — which is also why it wasn't stubbed into the
 editor under the clock. A dead button promising a feature is worse than an honest gap.
 
+### Also next: the speak flow itself
+
+Voice is currently **tap to open, tap to start, tap to send** — three taps for one
+instruction, chosen because it is the path that was actually verified on a device. A
+hold-to-speak gesture was built and then removed: an accidental press-and-hold while
+scrolling a manuscript starts a recording nobody meant, and it had never been tested on
+hardware. Shipping one verified path beat shipping two where one was a guess.
+
+The right answer is probably a hybrid — hold for a quick instruction, tap for a long one
+— but it needs real device testing with real thumbs on a real manuscript, not a
+confident guess under a clock. That is the next thing I would sit with.
+
 ## Rig manual (inherited)
 
 A reusable Expo + TypeScript rig for a **2-hour, from-scratch React Native POC**. Scaffold a

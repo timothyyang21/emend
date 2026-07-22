@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { ProposalReview } from '@/components/diff';
@@ -37,9 +37,14 @@ import { SYNC_STATUS_LABEL } from '@/types/contracts';
 export default function Home() {
   const doc = useDoc();
   const review = useProposal();
-  const voice = useVoiceCapture();
-  const history = useHistory();
   const dictionary = useDictionary();
+  // Bare names for the recogniser — it needs the spelling, not the descriptions.
+  const dictionaryTerms = useMemo(
+    () => dictionary.entries.map((e) => e.term),
+    [dictionary.entries]
+  );
+  const voice = useVoiceCapture({ dictionary: dictionaryTerms });
+  const history = useHistory();
   const router = useRouter();
   const [applying, setApplying] = useState(false);
   const [undoing, setUndoing] = useState(false);
