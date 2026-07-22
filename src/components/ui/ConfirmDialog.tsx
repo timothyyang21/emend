@@ -31,7 +31,7 @@ export function ConfirmDialog({
   message?: string;
   confirmLabel: string;
   cancelLabel?: string;
-  /** Tints the confirm control — for actions that throw work away. */
+  /** Reserved for future tinting of throw-away actions; the confirm is already emphasised. */
   destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -74,13 +74,13 @@ export function ConfirmDialog({
           {message ? <AppText variant="muted">{message}</AppText> : null}
 
           <View style={{ gap: space.sm }}>
-            {/* Cancel first and heavier: the default reading is "keep my work". */}
-            <Button title={cancelLabel} onPress={onCancel} />
-            <Button
-              title={confirmLabel}
-              variant={destructive ? 'secondary' : 'ghost'}
-              onPress={onConfirm}
-            />
+            {/* The confirm carries the emphasis: someone who opened this dialog
+                came here to do the thing, and making them hunt for it in the
+                quieter control is friction on a decision they already made. The
+                safety is the dialog existing at all — plus the scrim and the
+                hardware back both meaning "no". */}
+            <Button title={confirmLabel} onPress={onConfirm} />
+            <Button title={cancelLabel} variant="ghost" onPress={onCancel} />
           </View>
         </Pressable>
       </Pressable>

@@ -124,33 +124,6 @@ export function ProposalReview({
         </Card>
       ))}
 
-      <Card>
-        {/* THE dominant action. Everything above only selects; this is the one
-            control that writes to the manuscript, and it names its exact count
-            so it can never be a guess. */}
-        <Button
-          title={
-            t.accepted === 0
-              ? 'Nothing accepted yet'
-              : `Apply ${t.accepted} change${t.accepted === 1 ? '' : 's'}`
-          }
-          onPress={onApply}
-          disabled={t.accepted === 0 || applying}
-          loading={applying}
-        />
-        {t.pending > 0 && t.accepted > 0 && (
-          <AppText variant="muted">
-            {t.pending} change{t.pending === 1 ? '' : 's'} you haven&apos;t decided on will be left
-            as they were.
-          </AppText>
-        )}
-        <Button
-          title="Discard this edit"
-          variant="ghost"
-          onPress={() => setConfirming(true)}
-          disabled={applying}
-        />
-      </Card>
       </ScrollView>
 
       {/* Pinned. The commit action must never be something you scroll to find —

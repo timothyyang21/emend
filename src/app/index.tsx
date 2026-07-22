@@ -7,6 +7,7 @@ import { MarkdownEditor } from '@/components/editor';
 import type { MarkdownEditorHandle } from '@/components/editor/types';
 import { AppText, Button, Card, Icon, Screen, tokens } from '@/components/ui';
 import { VoiceButton } from '@/components/voice/VoiceButton';
+import { VoiceStatus } from '@/components/voice/VoiceStatus';
 import { applyDecisions, layoutDiff } from '@/lib/diff';
 import { chapterLabel, currentChapter } from '@/lib/session/chapters';
 import { describeEdit, lastEdit, restoreLabel } from '@/lib/session/history';
@@ -275,14 +276,16 @@ export default function Home() {
       {panelVisible && (
         <Pressable onPress={dismissKeyboard}>
           <Card>
-            {/* Fixed footprint: the wording changes as the state changes, and a
-                box that resizes under a thumb is how a tap lands on the wrong
-                control. */}
-            <View style={{ minHeight: 76, justifyContent: 'center', gap: tokens.space.xs }}>
-              <AppText variant="h2">
-                {thinking ? REVIEW_PHASE_LABEL.thinking : VOICE_STATUS_LABEL[voice.status]}
-              </AppText>
-              {recording && <AppText variant="muted">{voice.durationSec.toFixed(1)}s</AppText>}
+            {/* Fixed footprint, and one constant anchor: the rose stays put
+                across recording → transcribing → thinking so the steps read as
+                one request continuing, not three screens. */}
+            <View style={{ minHeight: 76, justifyContent: 'center' }}>
+              <VoiceStatus
+                label={thinking ? REVIEW_PHASE_LABEL.thinking : VOICE_STATUS_LABEL[voice.status]}
+                detail={recording ? `${voice.durationSec.toFixed(1)}s` : undefined}
+                busy={busy}
+                recording={recording}
+              />
             </View>
 
             {review.pendingInstruction && (thinking || review.phase === 'error') && (
