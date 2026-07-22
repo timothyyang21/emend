@@ -2,6 +2,7 @@ export { AppText } from './AppText';
 export { Screen } from './Screen';
 export { Button } from './Button';
 export { Card } from './Card';
+export { ConfirmDialog } from './ConfirmDialog';
 export { Input } from './Input';
 export { AutoGrowInput } from './AutoGrowInput';
 export { Icon } from './Icon';

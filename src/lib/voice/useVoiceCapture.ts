@@ -17,7 +17,7 @@ import { TranscriptionError, transcribeAudio } from './transcribe';
 export type VoiceStatus = 'idle' | 'permission' | 'recording' | 'transcribing' | 'error';
 
 export const VOICE_STATUS_LABEL: Record<VoiceStatus, string> = {
-  idle: 'Hold to speak',
+  idle: 'Tap to speak',
   permission: 'Asking for the microphone…',
   recording: 'Listening…',
   transcribing: 'Working out what you said…',

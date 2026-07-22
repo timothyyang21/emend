@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
-import { AppText, Button, Card, tokens } from '@/components/ui';
+import { AppText, Button, Card, ConfirmDialog, tokens } from '@/components/ui';
 import { tally, tallySentence } from '@/store/proposal';
 import type { DiffSegment, EditProposal, HunkDecision, ID } from '@/types/contracts';
 
@@ -41,19 +41,13 @@ export function ProposalReview({
   applying?: boolean;
 }) {
   const [focusedId, setFocusedId] = useState<ID | null>(null);
-
   /**
    * A proposed edit is work the writer has not seen anywhere else — once it is
    * gone they would have to speak the instruction again. So leaving asks first,
    * and both exits (Back and Discard) go through the same question rather than
    * one of them being quietly destructive.
    */
-  function confirmDiscard() {
-    Alert.alert('Discard the proposed changes?', "They won't be applied.", [
-      { text: 'Keep reviewing', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: onDiscard },
-    ]);
-  }
+  const [confirming, setConfirming] = useState(false);
   const t = tally(
     proposal.hunks.map((h) => h.id),
     decisions
@@ -61,12 +55,26 @@ export function ProposalReview({
 
   return (
     <View style={{ gap: tokens.space.md }}>
+      <ConfirmDialog
+        visible={confirming}
+        title="Discard the proposed changes?"
+        message="They won't be applied to your manuscript, and you'd have to ask for the edit again."
+        cancelLabel="Keep reviewing"
+        confirmLabel="Discard"
+        destructive
+        onCancel={() => setConfirming(false)}
+        onConfirm={() => {
+          setConfirming(false);
+          onDiscard();
+        }}
+      />
+
       {/* Names where it goes, and never leaves silently. */}
       <Button
         title="Back to the manuscript"
         variant="ghost"
         size="sm"
-        onPress={confirmDiscard}
+        onPress={() => setConfirming(true)}
         disabled={applying}
       />
 
@@ -161,7 +169,7 @@ export function ProposalReview({
         <Button
           title="Discard this edit"
           variant="ghost"
-          onPress={confirmDiscard}
+          onPress={() => setConfirming(true)}
           disabled={applying}
         />
       </Card>

@@ -5,7 +5,7 @@ import { Pressable, View } from 'react-native';
 import { ProposalReview } from '@/components/diff';
 import { MarkdownEditor } from '@/components/editor';
 import type { MarkdownEditorHandle } from '@/components/editor/types';
-import { AppText, Button, Card, Screen, tokens } from '@/components/ui';
+import { AppText, Button, Card, Icon, Screen, tokens } from '@/components/ui';
 import { VoiceButton } from '@/components/voice/VoiceButton';
 import { applyDecisions, layoutDiff } from '@/lib/diff';
 import { chapterLabel, currentChapter } from '@/lib/session/chapters';
@@ -163,28 +163,25 @@ export default function Home() {
    * changes, and you had to leave the keyboard to reach them.
    */
   const writingControls = (
-    <View style={{ flexDirection: 'row', gap: tokens.space.sm }}>
+    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: tokens.space.sm }}>
       {undoTarget && (
-        <Button
-          title={`Undo ${describeEdit(undoTarget, Date.now())}`}
-          variant="secondary"
-          size="sm"
+        <IconControl
+          name="arrow-undo-outline"
+          // The full sentence moves to the accessibility label rather than
+          // disappearing: the control is compact, not mute.
+          label={`Undo ${describeEdit(undoTarget, Date.now())}`}
           onPress={onUndo}
-          loading={undoing}
           disabled={undoing}
-          style={{ flex: 1 }}
         />
       )}
-      <Button
-        title="History"
-        variant="ghost"
-        size="sm"
+      <IconControl
+        name="time-outline"
+        label="History of your edits"
         onPress={() => {
           dismissKeyboard();
           router.navigate('/history');
         }}
         disabled={undoing}
-        style={undoTarget ? undefined : { flex: 1 }}
       />
     </View>
   );
@@ -236,7 +233,10 @@ export default function Home() {
           <Card>
             {/* Fixed footprint: a status line that appears and disappears would
                 shove the controls out from under the writer's thumb. */}
-            <View style={{ height: 46, justifyContent: 'center' }}>
+            {/* Taller, and a fixed footprint: the status line changes wording as
+                the state changes, and a box that resizes under a thumb is how a
+                tap lands on the wrong control. */}
+            <View style={{ minHeight: 76, justifyContent: 'center', gap: tokens.space.xs }}>
               <AppText variant="h2">
                 {thinking ? REVIEW_PHASE_LABEL.thinking : VOICE_STATUS_LABEL[voice.status]}
               </AppText>
@@ -254,7 +254,7 @@ export default function Home() {
               </>
             ) : (
               <Button
-                title={thinking ? 'Working…' : 'Hold to speak an instruction'}
+                title={thinking ? 'Working…' : 'Tap to speak an instruction'}
                 onPress={() => {
                   dismissKeyboard();
                   voice.start();
@@ -291,7 +291,7 @@ export default function Home() {
           the panel owns the screen then, and a second control competing with
           "Stop" is how a recording gets lost. */}
       {!recording && (
-        <View style={{ position: 'absolute', right: tokens.space.lg, bottom: tokens.space.xl }}>
+        <View style={{ position: 'absolute', right: tokens.space.xl, bottom: tokens.space.xl }}>
           <VoiceButton
             active={voiceOpen}
             disabled={busy}
@@ -303,5 +303,48 @@ export default function Home() {
         </View>
       )}
     </Screen>
+  );
+}
+
+/**
+ * A compact icon control for the writing screen.
+ *
+ * The labels these replaced were whole sentences — "Undo replace Susan with
+ * Janet" — which is the right words in the wrong place: above a manuscript they
+ * read as chrome shouting. The sentence survives as the accessibility label, and
+ * the History screen still spells every edit out in full.
+ */
+function IconControl({
+  name,
+  label,
+  onPress,
+  disabled,
+}: {
+  name: React.ComponentProps<typeof Icon>['name'];
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={10}
+      style={({ pressed }) => ({
+        width: 38,
+        height: 38,
+        borderRadius: tokens.radius.pill,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: tokens.colors.border,
+        backgroundColor: tokens.colors.surface,
+        opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
+      })}
+    >
+      <Icon name={name} size="md" color="textMuted" />
+    </Pressable>
   );
 }

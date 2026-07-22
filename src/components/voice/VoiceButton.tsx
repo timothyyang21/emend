@@ -47,11 +47,9 @@ export function VoiceButton({
           ...tokens.shadow.card,
         })}
       >
-        <Icon
-          name={active ? 'close' : 'rose'}
-          size={26}
-          color={active ? 'textMuted' : 'primaryText'}
-        />
+        {/* White on champagne reads as the bloom on the icon does — ink here
+            made it look like a warning glyph rather than a flower. */}
+        <Icon name={active ? 'close' : 'rose'} size={28} color={active ? 'textMuted' : '#FFFFFF'} />
       </Pressable>
       {/* The mark alone would be a guess. One word underneath, always. */}
       <AppText variant="label">{active ? 'CLOSE' : 'SPEAK'}</AppText>
