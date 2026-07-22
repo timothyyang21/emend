@@ -42,9 +42,9 @@ export default function Home() {
   const router = useRouter();
   const [applying, setApplying] = useState(false);
   const [undoing, setUndoing] = useState(false);
-  // The command panel is closed by default: the editor is for writing, and a
-  // permanent control bar competes with the sentence being written.
-  const [voiceOpen, setVoiceOpen] = useState(false);
+  // Tracks whether THIS recording was started by holding the button, so release
+  // knows whether to send. A tap-started recording is ended by its own control.
+  const holding = useRef(false);
   // Mirrors the page's focus so the top bar can offer the way out of the
   // keyboard. Tap-outside still works; this is the backup that is always in the
   // same place.
@@ -79,7 +79,6 @@ export default function Home() {
         return;
       }
       review.present(proposal);
-      setVoiceOpen(false);
     } catch (e) {
       review.fail(e instanceof Error ? e.message : 'The edit could not be made.');
     }
@@ -230,6 +229,10 @@ export default function Home() {
   const recording = voice.status === 'recording';
   const thinking = review.phase === 'thinking';
   const busy = thinking || voice.status === 'transcribing';
+  // A held recording keeps the button on screen (you are still holding it); a
+  // tapped one hands over to the panel, which owns Stop.
+  const panelVisible =
+    busy || (recording && !holding.current) || !!voice.error || review.phase === 'error';
 
   return (
     <Screen>
@@ -248,16 +251,15 @@ export default function Home() {
         />
       </View>
 
-      {/* The command panel, only when asked for. Anything the writer must SEE —
-          an error, a failed edit — stays visible whether it is open or not. */}
-      {(voiceOpen || busy || recording || voice.error || review.phase === 'error') && (
+      {/* Status, not a menu. There is no "open the voice panel" any more: the
+          button IS the control, and this appears only when there is something
+          the writer needs to see. */}
+      {panelVisible && (
         <Pressable onPress={dismissKeyboard}>
           <Card>
-            {/* Fixed footprint: a status line that appears and disappears would
-                shove the controls out from under the writer's thumb. */}
-            {/* Taller, and a fixed footprint: the status line changes wording as
-                the state changes, and a box that resizes under a thumb is how a
-                tap lands on the wrong control. */}
+            {/* Fixed footprint: the wording changes as the state changes, and a
+                box that resizes under a thumb is how a tap lands on the wrong
+                control. */}
             <View style={{ minHeight: 76, justifyContent: 'center', gap: tokens.space.xs }}>
               <AppText variant="h2">
                 {thinking ? REVIEW_PHASE_LABEL.thinking : VOICE_STATUS_LABEL[voice.status]}
@@ -269,21 +271,14 @@ export default function Home() {
               <AppText variant="prose">“{review.pendingInstruction}”</AppText>
             )}
 
-            {recording ? (
+            {/* Only while a tap started this recording — a held one ends by
+                letting go, and offering a Stop button for it would be two ways to
+                finish one gesture. */}
+            {recording && !holding.current && (
               <>
                 <Button title="Stop and make the change" onPress={onStopSpeaking} />
                 <Button title="Discard" variant="ghost" onPress={voice.cancel} />
               </>
-            ) : (
-              <Button
-                title={thinking ? 'Working…' : 'Tap to speak an instruction'}
-                onPress={() => {
-                  dismissKeyboard();
-                  voice.start();
-                }}
-                loading={busy}
-                disabled={busy}
-              />
             )}
 
             {voice.error && (
@@ -300,8 +295,7 @@ export default function Home() {
                   variant="secondary"
                   onPress={() => {
                     review.discard();
-                    setVoiceOpen(false);
-                  }}
+                                }}
                 />
               </>
             )}
@@ -309,17 +303,27 @@ export default function Home() {
         </Pressable>
       )}
 
-      {/* Floating, bottom-right, over the manuscript. Never while recording —
-          the panel owns the screen then, and a second control competing with
-          "Stop" is how a recording gets lost. */}
-      {!recording && (
+      {/* Floating, bottom-right, over the manuscript. Hidden whenever the status
+          panel is up so the two can never collide — which they did. */}
+      {!panelVisible && (
         <View style={{ position: 'absolute', right: tokens.space.xl, bottom: tokens.space.xl }}>
           <VoiceButton
-            active={voiceOpen}
             disabled={busy}
-            onPress={() => {
+            recording={recording}
+            durationSec={voice.durationSec}
+            onTap={() => {
               dismissKeyboard();
-              setVoiceOpen((open) => !open);
+              holding.current = false;
+              voice.start();
+            }}
+            onHoldStart={() => {
+              dismissKeyboard();
+              holding.current = true;
+              voice.start();
+            }}
+            onHoldEnd={() => {
+              holding.current = false;
+              onStopSpeaking();
             }}
           />
         </View>

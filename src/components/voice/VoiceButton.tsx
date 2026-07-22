@@ -1,58 +1,98 @@
+import { useRef } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { AppText, Icon, tokens } from '@/components/ui';
 
 /**
- * The floating voice control — a quiet circle carrying the icon's rose, resting
+ * The voice control — a quiet circle carrying the icon's rose, resting
  * bottom-right over the manuscript.
  *
- * WHY IT IS TWO STATES AND NOT A PERMANENT PANEL: the editor belongs to the
- * writer's words. An always-open command bar is a second thing competing for the
- * bottom of the screen while they are trying to write a sentence. Idle it is one
- * circle; tapping it opens the speaking affordance, and closing it puts the
- * screen back to prose.
+ * TWO GESTURES, ONE BUTTON, because writers differ and neither should have to
+ * learn a panel first:
+ *   hold  → record while held, release to send. Nothing else appears.
+ *   tap   → start recording hands-free; the status strip takes over.
+ *
+ * A press only counts as a hold after HOLD_MS, so a slightly slow tap is still a
+ * tap rather than a recording nobody meant to start.
  *
  * Purely presentational — every piece of voice state is owned above it.
  */
-const SIZE = 62;
+const SIZE = 64;
+const HOLD_MS = 260;
 
 export function VoiceButton({
-  onPress,
+  onTap,
+  onHoldStart,
+  onHoldEnd,
+  recording,
+  durationSec,
   disabled,
-  active,
 }: {
-  onPress: () => void;
-  /** True while the panel is open, so the control reads as the way back. */
-  active?: boolean;
+  onTap: () => void;
+  onHoldStart: () => void;
+  onHoldEnd: () => void;
+  recording?: boolean;
+  /** Shown while recording — held speech has no panel, so proof of life lives here. */
+  durationSec?: number;
   disabled?: boolean;
 }) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const held = useRef(false);
+
+  function onPressIn() {
+    held.current = false;
+    timer.current = setTimeout(() => {
+      held.current = true;
+      onHoldStart();
+    }, HOLD_MS);
+  }
+
+  function onPressOut() {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    if (held.current) {
+      held.current = false;
+      onHoldEnd();
+    } else {
+      onTap();
+    }
+  }
+
   return (
     <View style={{ alignItems: 'center', gap: tokens.space.xs }}>
       <Pressable
-        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
         disabled={disabled}
         accessibilityRole="button"
-        accessibilityLabel={active ? 'Close voice editing' : 'Edit by voice'}
-        hitSlop={8}
+        accessibilityLabel="Edit by voice. Tap to start, or hold and speak."
+        hitSlop={10}
         style={({ pressed }) => ({
           width: SIZE,
           height: SIZE,
           borderRadius: SIZE / 2,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: active ? tokens.colors.surfaceAlt : tokens.colors.primary,
-          borderWidth: 1,
-          borderColor: active ? tokens.colors.border : tokens.colors.primary,
-          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+          backgroundColor: recording ? tokens.colors.danger : tokens.colors.primary,
+          borderWidth: recording ? 3 : 1,
+          borderColor: recording ? tokens.colors.rose : tokens.colors.primary,
+          // Grows while held, so the gesture is visibly doing something.
+          transform: [{ scale: pressed || recording ? 1.06 : 1 }],
+          opacity: disabled ? 0.5 : 1,
           ...tokens.shadow.card,
         })}
       >
-        {/* White on champagne reads as the bloom on the icon does — ink here
-            made it look like a warning glyph rather than a flower. */}
-        <Icon name={active ? 'close' : 'rose'} size={28} color={active ? 'textMuted' : '#FFFFFF'} />
+        <Icon name={recording ? 'stop' : 'rose'} size={28} color="#FFFFFF" />
       </Pressable>
-      {/* The mark alone would be a guess. One word underneath, always. */}
-      <AppText variant="label">{active ? 'CLOSE' : 'SPEAK'}</AppText>
+      {/* The mark alone would be a guess. One instruction underneath, always,
+          and it changes to tell you how to finish what you started. */}
+      <AppText variant="label">
+        {recording
+          ? `RELEASE TO SEND · ${(durationSec ?? 0).toFixed(1)}S`
+          : 'HOLD TO SPEAK'}
+      </AppText>
     </View>
   );
 }
