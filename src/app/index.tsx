@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -6,9 +7,11 @@ import { MarkdownEditor } from '@/components/editor';
 import type { MarkdownEditorHandle } from '@/components/editor/types';
 import { AppText, Button, Card, Screen } from '@/components/ui';
 import { applyDecisions, layoutDiff } from '@/lib/diff';
+import { describeEdit, lastEdit, restoreLabel } from '@/lib/session/history';
 import { runEdit } from '@/lib/session/runEdit';
 import { VOICE_STATUS_LABEL, useVoiceCapture } from '@/lib/voice';
 import { useDoc } from '@/store/doc';
+import { useHistory } from '@/store/history';
 import { REVIEW_PHASE_LABEL, useProposal } from '@/store/proposal';
 import { SYNC_STATUS_LABEL } from '@/types/contracts';
 
@@ -31,7 +34,10 @@ export default function Home() {
   const doc = useDoc();
   const review = useProposal();
   const voice = useVoiceCapture();
+  const history = useHistory();
+  const router = useRouter();
   const [applying, setApplying] = useState(false);
+  const [undoing, setUndoing] = useState(false);
   const editorRef = useRef<MarkdownEditorHandle>(null);
 
   // Tapping anything that is not the manuscript puts the keyboard away. Without
@@ -41,6 +47,7 @@ export default function Home() {
 
   useEffect(() => {
     doc.load();
+    history.refresh();
     // Cold start only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -71,10 +78,31 @@ export default function Home() {
       doc.setMarkdown(next, proposal.instruction);
       await doc.flush();
       review.discard();
+      // The stack only gains an entry once the save lands, so refresh after the
+      // flush — otherwise Undo would still name the previous edit.
+      await history.refresh();
     } finally {
       setApplying(false);
     }
-  }, [review, doc]);
+  }, [review, doc, history]);
+
+  /**
+   * Undo the most recent accepted edit. Restoring is an ordinary edit: it writes
+   * the old text through the document store, which saves it as a NEW version.
+   * Nothing is removed from the stack, so this is reversible in its turn.
+   */
+  const onUndo = useCallback(async () => {
+    const previous = lastEdit(history.versions);
+    if (!previous) return;
+    setUndoing(true);
+    try {
+      doc.setMarkdown(previous.markdown, restoreLabel(previous, Date.now()));
+      await doc.flush();
+      await history.refresh();
+    } finally {
+      setUndoing(false);
+    }
+  }, [doc, history]);
 
   const header = (
     <Pressable
@@ -109,6 +137,7 @@ export default function Home() {
   const recording = voice.status === 'recording';
   const thinking = review.phase === 'thinking';
   const busy = thinking || voice.status === 'transcribing';
+  const undoTarget = lastEdit(history.versions);
 
   return (
     <Screen>
@@ -156,6 +185,29 @@ export default function Home() {
             disabled={busy}
           />
         )}
+
+        {/* Undo names the edit it reverses, so it is never a guess about what
+            "undo" would do to your manuscript. Hidden entirely when the stack is
+            empty rather than shown disabled — a dead control is worse than none. */}
+        {undoTarget && !recording && (
+          <Button
+            title={`Undo ${describeEdit(undoTarget, Date.now())}`}
+            variant="secondary"
+            onPress={onUndo}
+            loading={undoing}
+            disabled={busy || undoing}
+          />
+        )}
+
+        <Button
+          title="History"
+          variant="ghost"
+          onPress={() => {
+            dismissKeyboard();
+            router.navigate('/history');
+          }}
+          disabled={undoing}
+        />
 
         {voice.error && (
           <>
