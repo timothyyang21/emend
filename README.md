@@ -30,6 +30,21 @@ the letterform — tool and craft in one mark.
 **AI candor:** the icons were generated and iterated with AI as vector art. The taste calls — vibe,
 palette, scale, placement, the pen read — were mine.
 
+## What's next
+
+**A story bible, at book level.** The obvious next feature is a list of proper nouns —
+characters, places, invented spellings — injected into every edit prompt so the model
+preserves them exactly: *"Preserve the exact spelling of these proper nouns unless
+explicitly instructed to change them."* The plumbing is already there: `EditRequest`
+carries an optional `dictionary: string[]`, `/api/edit` injects it, and it was verified
+working against the live model (given `["Aeryn Kestrelle", "Wyckhampe"]` it fixed
+"trane"→"train" and left the invented names and British "travelled" alone).
+
+What's missing is only the UI and persistence, and it should not be a per-chapter list.
+A character's name is a fact about the *book*, so the story bible belongs beside the
+chapter index, not inside Chapter 4 — which is also why it wasn't stubbed into the
+editor under the clock. A dead button promising a feature is worse than an honest gap.
+
 ## Rig manual (inherited)
 
 A reusable Expo + TypeScript rig for a **2-hour, from-scratch React Native POC**. Scaffold a
