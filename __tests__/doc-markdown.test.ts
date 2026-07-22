@@ -180,7 +180,11 @@ test('a trailing break added by the browser does not accumulate newlines', () =>
 // --- the whole point --------------------------------------------------------
 
 test('a realistic editing session leaves everything it did not touch alone', () => {
-  const edited = SAMPLE_MARKDOWN.replace(/Susan walked/, 'Janet walked');
+  const edited = SAMPLE_MARKDOWN.replace(/Susan couldn't bear/, "Janet couldn't bear");
+  // If a copy edit to the seed makes that replacement a no-op, this test would
+  // "pass" against an untouched document and prove nothing.
+  expect(edited).not.toBe(SAMPLE_MARKDOWN);
+
   const out = roundTrip(edited);
   expect(out).toBe(edited);
   // And the only difference from the original is the one the writer made.

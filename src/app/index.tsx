@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { ProposalReview } from '@/components/diff';
-import { MarkdownEditor } from '@/components/editor/MarkdownEditor';
+import { MarkdownEditor } from '@/components/editor';
 import { AppText, Button, Card, Screen } from '@/components/ui';
 import { applyDecisions, layoutDiff } from '@/lib/diff';
 import { runEdit } from '@/lib/session/runEdit';
@@ -20,6 +20,11 @@ import { SYNC_STATUS_LABEL } from '@/types/contracts';
  * The screen never mutates the manuscript directly. Applying a proposal is the
  * single path from AI output to the document, and it runs through
  * `applyDecisions`, which only honours hunks the writer explicitly accepted.
+ *
+ * Two layouts, deliberately: writing mode gives the editor a bounded flex:1 box
+ * (it scrolls internally — nesting it in a ScrollView breaks its scrolling and
+ * its caret tracking), review mode scrolls the page because the change list is
+ * arbitrarily long.
  */
 export default function Home() {
   const doc = useDoc();
@@ -64,18 +69,18 @@ export default function Home() {
     }
   }, [review, doc]);
 
-  const recording = voice.status === 'recording';
-  const thinking = review.phase === 'thinking';
+  const header = (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <AppText variant="h1">Emend</AppText>
+      <AppText variant="label">{SYNC_STATUS_LABEL[doc.status].toUpperCase()}</AppText>
+    </View>
+  );
 
-  return (
-    <Screen scroll>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <AppText variant="h1">Emend</AppText>
-        <AppText variant="label">{SYNC_STATUS_LABEL[doc.status].toUpperCase()}</AppText>
-      </View>
-      {doc.error && <AppText variant="muted">{doc.error}</AppText>}
-
-      {review.phase === 'reviewing' && review.proposal ? (
+  // --- Review mode: the page scrolls, the editor is off screen -------------
+  if (review.phase === 'reviewing' && review.proposal) {
+    return (
+      <Screen scroll>
+        {header}
         <ProposalReview
           proposal={review.proposal}
           segments={layoutDiff(review.proposal.baseMarkdown, review.proposal.hunks)}
@@ -86,59 +91,70 @@ export default function Home() {
           onDiscard={review.discard}
           applying={applying}
         />
-      ) : (
-        <Card>
-          <MarkdownEditor
-            markdown={doc.markdown}
-            onChangeMarkdown={(md) => doc.setMarkdown(md)}
-            editable={!thinking}
+      </Screen>
+    );
+  }
+
+  // --- Writing mode: editor owns the space, controls pinned below ----------
+  const recording = voice.status === 'recording';
+  const thinking = review.phase === 'thinking';
+  const busy = thinking || voice.status === 'transcribing';
+
+  return (
+    <Screen>
+      {header}
+      {doc.error && <AppText variant="muted">{doc.error}</AppText>}
+
+      {/* Bounded box — the editor scrolls itself. */}
+      <View style={{ flex: 1 }}>
+        <MarkdownEditor
+          markdown={doc.markdown}
+          onChangeMarkdown={(md: string) => doc.setMarkdown(md)}
+          editable={!busy}
+        />
+      </View>
+
+      <Card>
+        {/* Fixed footprint: a status line that appears and disappears would
+            shove the mic button out from under the writer's thumb. */}
+        <View style={{ height: 46, justifyContent: 'center' }}>
+          <AppText variant="h2">
+            {thinking ? REVIEW_PHASE_LABEL.thinking : VOICE_STATUS_LABEL[voice.status]}
+          </AppText>
+          {recording && <AppText variant="muted">{voice.durationSec.toFixed(1)}s</AppText>}
+        </View>
+
+        {review.pendingInstruction && (thinking || review.phase === 'error') && (
+          <AppText variant="prose">“{review.pendingInstruction}”</AppText>
+        )}
+
+        {recording ? (
+          <>
+            <Button title="Stop and make the change" onPress={onStopSpeaking} />
+            <Button title="Discard" variant="ghost" onPress={voice.cancel} />
+          </>
+        ) : (
+          <Button
+            title={thinking ? 'Working…' : 'Speak an instruction'}
+            onPress={voice.start}
+            loading={busy}
+            disabled={busy}
           />
-        </Card>
-      )}
+        )}
 
-      {review.phase !== 'reviewing' && (
-        <Card>
-          {/* Fixed footprint: a status line that appears and disappears would
-              shove the mic button out from under the writer's thumb. */}
-          <View style={{ height: 46, justifyContent: 'center' }}>
-            <AppText variant="h2">
-              {thinking ? REVIEW_PHASE_LABEL.thinking : VOICE_STATUS_LABEL[voice.status]}
-            </AppText>
-            {recording && <AppText variant="muted">{voice.durationSec.toFixed(1)}s</AppText>}
-          </View>
-
-          {review.pendingInstruction && (thinking || review.phase === 'error') && (
-            <AppText variant="prose">“{review.pendingInstruction}”</AppText>
-          )}
-
-          {recording ? (
-            <>
-              <Button title="Stop and make the change" onPress={onStopSpeaking} />
-              <Button title="Discard" variant="ghost" onPress={voice.cancel} />
-            </>
-          ) : (
-            <Button
-              title={thinking ? 'Working…' : 'Speak an instruction'}
-              onPress={voice.start}
-              loading={thinking || voice.status === 'transcribing'}
-              disabled={thinking || voice.status === 'transcribing'}
-            />
-          )}
-
-          {voice.error && (
-            <>
-              <AppText variant="muted">{voice.error}</AppText>
-              <Button title="Try again" variant="secondary" onPress={voice.reset} />
-            </>
-          )}
-          {review.phase === 'error' && review.error && (
-            <>
-              <AppText variant="muted">{review.error}</AppText>
-              <Button title="Back to the manuscript" variant="secondary" onPress={review.discard} />
-            </>
-          )}
-        </Card>
-      )}
+        {voice.error && (
+          <>
+            <AppText variant="muted">{voice.error}</AppText>
+            <Button title="Try again" variant="secondary" onPress={voice.reset} />
+          </>
+        )}
+        {review.phase === 'error' && review.error && (
+          <>
+            <AppText variant="muted">{review.error}</AppText>
+            <Button title="Back to the manuscript" variant="secondary" onPress={review.discard} />
+          </>
+        )}
+      </Card>
     </Screen>
   );
 }
