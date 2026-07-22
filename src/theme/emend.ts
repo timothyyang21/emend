@@ -1,11 +1,10 @@
 /**
- * EMEND ART DIRECTION — recorded now, APPLIED IN THE POLISH PASS.
+ * EMEND ART DIRECTION — the live theme.
  *
- * Nothing imports this file yet, and that is deliberate: the vertical slice runs
- * on the rig's existing dark `tokens.ts`. Swapping the look mid-slice would mean
- * debugging layout and voice at the same time. When the slice is green, the
- * polish pass rewires `@/theme/tokens` to re-export these values and the UI kit
- * picks them up in one move — see "Applying this" at the bottom.
+ * This is the app's live palette: `@/theme/tokens` re-exports it, and every
+ * primitive in `@/components/ui` reads tokens. It was kept out of the build until
+ * the slice was green so that layout and voice were never being debugged through
+ * a colour change.
  *
  * Vibe: spring-clear, light Regency. Literary, elegant, airy, restrained.
  */
@@ -133,16 +132,12 @@ export const emendTheme = {
 } as const;
 
 /**
- * APPLYING THIS (polish pass, one sitting):
+ * APPLIED. `src/theme/tokens.ts` re-exports everything here, so the UI kit — and
+ * therefore every screen — reads this file. Change a value here and the whole app
+ * moves with it; that is the point of the indirection, so please don't reintroduce
+ * hard-coded hexes at call sites.
  *
- *   1. npx expo install @expo-google-fonts/fraunces
- *   2. src/theme/fonts.ts — load Fraunces_400Regular / _600SemiBold / _700Bold
- *      alongside Figtree; drop Literata.
- *   3. src/theme/tokens.ts — re-export from here:
- *        export const colors = emendColors;  (etc.)
- *      The UI kit reads tokens only, so every primitive turns over at once.
- *   4. Check contrast on device in daylight — cream backgrounds lie on a
- *      simulator at full brightness.
- *
- * Until step 3 lands, the app is still dark. That is expected, not a bug.
+ * The one surface that does NOT read these tokens is the editor's WebView page,
+ * which cannot see the app's loaded fonts. It uses tokens for colour and a system
+ * serif stack (Iowan Old Style / Georgia) for the prose face.
  */

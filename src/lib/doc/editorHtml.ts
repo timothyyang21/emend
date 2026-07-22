@@ -47,7 +47,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: light; }
   html, body {
     margin: 0; padding: 0; height: 100%;
     background: ${colors.bg}; color: ${colors.text};
@@ -98,7 +98,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
     /* pre-wrap so the writer's own spacing survives a round trip. */
     white-space: pre-wrap;
     word-wrap: break-word;
-    font: 17px/1.55 Georgia, "Times New Roman", "Iowan Old Style", serif;
+    font: 18px/1.62 "Iowan Old Style", Georgia, "Times New Roman", serif;
     caret-color: ${colors.primary};
   }
   #doc p { margin: 0 0 ${space.lg}px 0; }

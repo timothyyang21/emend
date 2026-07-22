@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
-import { AppText, Button, Card } from '@/components/ui';
+import { AppText, Button, Card, tokens } from '@/components/ui';
 import { tally, tallySentence } from '@/store/proposal';
-import { emendDiff } from '@/theme/emend';
 import type { DiffSegment, EditProposal, HunkDecision, ID } from '@/types/contracts';
 
 import { DiffText, HunkRow } from './DiffText';
@@ -77,7 +76,7 @@ export function ProposalReview({
         )}
       </Card>
 
-      <Card style={{ backgroundColor: '#FBF7F0' }}>
+      <Card>
         <AppText variant="label">YOUR MANUSCRIPT, WITH THE CHANGES</AppText>
         {/* Bounded so the change list below stays reachable on a phone. */}
         <ScrollView style={{ maxHeight: 320 }} nestedScrollEnabled>
@@ -89,13 +88,13 @@ export function ProposalReview({
           />
         </ScrollView>
         <View style={{ flexDirection: 'row', gap: 14, marginTop: 4 }}>
-          <Legend color={emendDiff.deleteBg} label="coming out" />
-          <Legend color={emendDiff.insertBg} label="going in" />
+          <Legend color={tokens.diff.deleteBg} label="coming out" />
+          <Legend color={tokens.diff.insertBg} label="going in" />
         </View>
       </Card>
 
       {proposal.hunks.map((h) => (
-        <Card key={h.id} style={{ backgroundColor: '#FBF7F0' }}>
+        <Card key={h.id}>
           <HunkRow
             hunk={h}
             decision={decisions[h.id] ?? 'pending'}

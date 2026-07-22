@@ -33,7 +33,8 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
+        {/* Dark glyphs: the page is ivory now, not near-black. */}
+        <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false }} />
       </SafeAreaProvider>
     </GestureHandlerRootView>

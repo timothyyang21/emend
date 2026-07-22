@@ -1,7 +1,7 @@
 import { PropsWithChildren } from 'react';
 import { Pressable, View, ViewStyle } from 'react-native';
 
-import { colors, radius, space } from '@/theme/tokens';
+import { colors, radius, shadow, space } from '@/theme/tokens';
 
 type Props = PropsWithChildren<{ onPress?: () => void; style?: ViewStyle }>;
 
@@ -13,6 +13,9 @@ export function Card({ children, onPress, style }: Props) {
     borderWidth: 1,
     borderColor: colors.border,
     gap: space.sm,
+    // Soft and warm rather than a hard grey drop — on ivory, a heavy shadow
+    // reads as grime. This is most of what makes the cards feel light.
+    ...shadow.card,
   };
   if (onPress) {
     return (

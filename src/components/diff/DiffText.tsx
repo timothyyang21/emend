@@ -1,23 +1,22 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { AppText } from '@/components/ui';
-import { emendDiff } from '@/theme/emend';
-import { fontFamily } from '@/theme/tokens';
+import { colors, diff as diffColors, fontFamily } from '@/theme/tokens';
 import type { DiffSegment, Hunk, HunkDecision, ID } from '@/types/contracts';
 
 /**
  * The manuscript with the proposed changes shown inline.
  *
- * Colours come from `@/theme/emend` rather than the current dark tokens on
- * purpose: the diff is the one surface where colour carries MEANING (rose =
- * going away, sage = coming in), so it ships in the product palette from the
- * start. The surrounding chrome catches up in the polish pass.
+ * Colour carries MEANING here — rose is going away, sage is coming in — so the
+ * backgrounds are pale enough that deep-ink text keeps full contrast on top of
+ * them. A deletion must never be harder to read than the prose around it: this
+ * is the surface where someone decides what happens to their manuscript.
  *
  * Deliberately dumb — it takes segments and decisions and renders them. All diff
  * maths lives in `@/lib/diff`.
  */
 
-const PROSE = { fontFamily: fontFamily.prose, fontSize: 17, lineHeight: 28 } as const;
+const PROSE = { fontFamily: fontFamily.prose, fontSize: 18, lineHeight: 30 } as const;
 
 type Props = {
   segments: DiffSegment[];
@@ -34,7 +33,7 @@ export function DiffText({ segments, decisions, focusedId, onFocusHunk }: Props)
         {segments.map((seg, i) => {
           if (seg.kind === 'equal') {
             return (
-              <Text key={`eq-${i}`} style={[PROSE, { color: emendDiff.deleteText }]}>
+              <Text key={`eq-${i}`} style={[PROSE, { color: diffColors.deleteText }]}>
                 {seg.text}
               </Text>
             );
@@ -58,17 +57,17 @@ export function DiffText({ segments, decisions, focusedId, onFocusHunk }: Props)
                   style={[
                     PROSE,
                     {
-                      backgroundColor: emendDiff.deleteBg,
-                      color: emendDiff.deleteText,
+                      backgroundColor: diffColors.deleteBg,
+                      color: diffColors.deleteText,
                       textDecorationLine: 'line-through',
-                      textDecorationColor: emendDiff.deleteRule,
+                      textDecorationColor: diffColors.deleteRule,
                     },
                     decision === 'rejected' && {
                       // Rejected: it stays, so it is no longer struck through.
                       backgroundColor: 'transparent',
                       textDecorationLine: 'none',
                     },
-                    focused && { borderBottomWidth: 2, borderColor: emendDiff.focusRing },
+                    focused && { borderBottomWidth: 2, borderColor: diffColors.focusRing },
                   ]}
                 >
                   {hunk.before}
@@ -79,8 +78,8 @@ export function DiffText({ segments, decisions, focusedId, onFocusHunk }: Props)
                   onPress={onFocusHunk ? () => onFocusHunk(hunk.id) : undefined}
                   style={[
                     PROSE,
-                    { backgroundColor: emendDiff.insertBg, color: emendDiff.insertText },
-                    focused && { borderBottomWidth: 2, borderColor: emendDiff.focusRing },
+                    { backgroundColor: diffColors.insertBg, color: diffColors.insertText },
+                    focused && { borderBottomWidth: 2, borderColor: diffColors.focusRing },
                   ]}
                 >
                   {hunk.after}
@@ -120,21 +119,21 @@ export function HunkRow({
       onPress={onFocus}
       style={{
         borderWidth: 1,
-        borderColor: focused ? emendDiff.focusRing : 'transparent',
-        borderRadius: 12,
-        padding: 12,
-        gap: 8,
+        borderColor: focused ? diffColors.focusRing : 'transparent',
+        borderRadius: 14,
+        padding: 4,
+        gap: 10,
       }}
     >
       <AppText variant="label">{stateWord.toUpperCase()}</AppText>
 
       {hunk.before.length > 0 && (
-        <Text style={[PROSE, { backgroundColor: emendDiff.deleteBg, color: emendDiff.deleteText }]}>
+        <Text style={[PROSE, { backgroundColor: diffColors.deleteBg, color: diffColors.deleteText }]}>
           {hunk.before}
         </Text>
       )}
       {hunk.after.length > 0 && (
-        <Text style={[PROSE, { backgroundColor: emendDiff.insertBg, color: emendDiff.insertText }]}>
+        <Text style={[PROSE, { backgroundColor: diffColors.insertBg, color: diffColors.insertText }]}>
           {hunk.after}
         </Text>
       )}
@@ -143,13 +142,13 @@ export function HunkRow({
         <DecisionButton
           label="Accept"
           active={decision === 'accepted'}
-          tint={emendDiff.insertBg}
+          tint={diffColors.insertBg}
           onPress={() => onDecide(decision === 'accepted' ? 'pending' : 'accepted')}
         />
         <DecisionButton
           label="Reject"
           active={decision === 'rejected'}
-          tint={emendDiff.deleteBg}
+          tint={diffColors.deleteBg}
           onPress={() => onDecide(decision === 'rejected' ? 'pending' : 'rejected')}
         />
       </View>
@@ -184,7 +183,7 @@ function DecisionButton({
         // gets misread, a block of colour with a word on it does not.
         backgroundColor: active ? tint : 'transparent',
         borderWidth: 1,
-        borderColor: active ? tint : emendDiff.deleteRule,
+        borderColor: active ? tint : colors.border,
         opacity: pressed ? 0.8 : 1,
       })}
     >
@@ -192,7 +191,7 @@ function DecisionButton({
         style={{
           fontFamily: fontFamily.sansSemi,
           fontSize: 14,
-          color: active ? emendDiff.deleteText : emendDiff.deleteRule,
+          color: active ? colors.text : colors.textMuted,
         }}
       >
         {active ? `${label}ed` : label}
