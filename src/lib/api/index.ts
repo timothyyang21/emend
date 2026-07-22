@@ -33,7 +33,13 @@ export class ApiClientError extends Error {
  * throwing on every keystroke.
  */
 export function apiBase(): string | null {
-  return process.env.EXPO_PUBLIC_API_BASE ?? null;
+  const configured = process.env.EXPO_PUBLIC_API_BASE;
+  if (configured) return configured;
+  // On web the functions live on the same origin, so a relative path is both
+  // correct and immune to the deployed URL changing. Native has no origin to be
+  // relative to and must be told explicitly at build time.
+  if (typeof window !== 'undefined' && window.location?.origin) return '';
+  return null;
 }
 
 export function apiConfigured(): boolean {
@@ -42,7 +48,8 @@ export function apiConfigured(): boolean {
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
   const base = apiBase();
-  if (!base) throw new ApiClientError('No backend configured for this build.');
+  // '' is a REAL base — same-origin on web. Only null means "no backend".
+  if (base === null) throw new ApiClientError('No backend configured for this build.');
 
   let res: Response;
   try {
