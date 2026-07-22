@@ -54,15 +54,25 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
     -webkit-text-size-adjust: 100%;
   }
   body { display: flex; flex-direction: column; }
-  #toolbar {
-    display: ${editable ? 'flex' : 'none'};
+  /* The chrome rail. Absent entirely until the writer is actually editing. */
+  #bar {
+    display: none;
+    align-items: center;
     gap: ${space.xs}px;
     padding: ${space.sm}px ${space.md}px;
     background: ${colors.surface};
     border-bottom: 1px solid ${colors.border};
-    overflow-x: auto; -webkit-overflow-scrolling: touch;
     flex: 0 0 auto;
   }
+  body.focused #bar { display: ${editable ? 'flex' : 'none'}; }
+  #toolbar {
+    display: none;
+    gap: ${space.xs}px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
+  }
+  /* Contextual: formatting is for the words you have chosen. */
+  body.selecting #toolbar { display: flex; }
   /* Words, not glyphs: a 16px "B" gets misread, and an active state you can only
      see as a slightly different grey is not a state the writer can read. */
   #toolbar button {
@@ -84,12 +94,11 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
      commit control on a document nobody is editing. */
   #done {
     margin-left: auto;
-    display: none;
+    flex: 0 0 auto;
     background: ${colors.primary};
     border-color: ${colors.primary};
     color: ${colors.primaryText};
   }
-  body.focused #done { display: block; }
   #doc {
     flex: 1 1 auto;
     overflow-y: auto; -webkit-overflow-scrolling: touch;
@@ -114,14 +123,18 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
 </style>
 </head>
 <body>
-<div id="toolbar">
-  <button type="button" data-cmd="bold">Bold</button>
-  <button type="button" data-cmd="italic">Italic</button>
-  <button type="button" data-block="h1">Title</button>
-  <button type="button" data-block="h2">Heading</button>
-  <button type="button" data-block="p">Body</button>
-  <!-- Right-aligned and only while typing: a way out of the keyboard that is a
-       word, in the one place the writer is already looking. -->
+<div id="bar">
+  <!-- Formatting appears only when text is selected. Default state is no chrome
+       at all: the manuscript is the screen. -->
+  <div id="toolbar">
+    <button type="button" data-cmd="bold">Bold</button>
+    <button type="button" data-cmd="italic">Italic</button>
+    <button type="button" data-block="h1">Title</button>
+    <button type="button" data-block="h2">Heading</button>
+    <button type="button" data-block="p">Body</button>
+  </div>
+  <!-- Shown whenever the keyboard is up, selection or not: the way out must not
+       depend on having selected something. -->
   <button type="button" id="done">Done</button>
 </div>
 <div id="doc" contenteditable="${editable ? 'true' : 'false'}" spellcheck="true" autocorrect="on"></div>
@@ -130,6 +143,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
   var doc = document.getElementById('doc');
   var toolbar = document.getElementById('toolbar');
   var done = document.getElementById('done');
+  var bar = document.getElementById('bar');
   var timer = null;
 
   function post(msg) {
@@ -236,6 +250,22 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
     return null;
   }
 
+  // Formatting chrome follows the SELECTION, not the focus: an always-on bar is
+  // permanent furniture above someone's novel, and this screen belongs to the
+  // manuscript.
+  function syncSelectionChrome() {
+    var sel = window.getSelection();
+    var on = false;
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+      var node = sel.anchorNode;
+      while (node) {
+        if (node === doc) { on = true; break; }
+        node = node.parentNode;
+      }
+    }
+    document.body.classList.toggle('selecting', on);
+  }
+
   function syncToolbar() {
     var block = blockTag();
     var buttons = toolbar.querySelectorAll('button:not(#done)');
@@ -252,7 +282,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
     }
   }
 
-  toolbar.addEventListener('mousedown', function (e) {
+  bar.addEventListener('mousedown', function (e) {
     // Never let the button steal focus — losing the selection is losing the
     // thing the writer was about to format.
     if (e.target && e.target.tagName === 'BUTTON') e.preventDefault();
@@ -280,6 +310,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
     toolbarPending = true;
     requestAnimationFrame(function () {
       toolbarPending = false;
+      syncSelectionChrome();
       syncToolbar();
     });
   }
@@ -314,7 +345,7 @@ export function buildEditorHtml(initialHtml: string, editable: boolean): string 
 
   window.__setEditable = function (on) {
     doc.setAttribute('contenteditable', on ? 'true' : 'false');
-    toolbar.style.display = on ? 'flex' : 'none';
+    if (!on) document.body.classList.remove('focused', 'selecting');
   };
 
   // Flush without waiting out the bridge debounce.

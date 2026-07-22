@@ -104,12 +104,33 @@ export default function Home() {
     }
   }, [doc, history]);
 
-  const header = (
+  /**
+   * The review screen is secondary chrome, so it can afford to say its own name.
+   * The editor cannot — see the writing-mode header below.
+   */
+  const reviewHeader = (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <AppText variant="h2">Emend</AppText>
+      <AppText variant="label">{SYNC_STATUS_LABEL[doc.status].toUpperCase()}</AppText>
+    </View>
+  );
+
+  /**
+   * WRITING MODE HEADER — deliberately almost nothing.
+   *
+   * The manuscript is the hero on this screen; a wordmark above it is the app
+   * talking over the writer's own words. What survives is the one thing that
+   * isn't decoration: whether their work is saved, in words, quietly. The name
+   * lives on the splash, the icon, and the secondary screens.
+   *
+   * It stays a Pressable because it is also the tap-outside target that puts the
+   * keyboard away.
+   */
+  const writingHeader = (
     <Pressable
       onPress={dismissKeyboard}
-      style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+      style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}
     >
-      <AppText variant="h1">Emend</AppText>
       <AppText variant="label">{SYNC_STATUS_LABEL[doc.status].toUpperCase()}</AppText>
     </Pressable>
   );
@@ -118,7 +139,7 @@ export default function Home() {
   if (review.phase === 'reviewing' && review.proposal) {
     return (
       <Screen scroll>
-        {header}
+        {reviewHeader}
         <ProposalReview
           proposal={review.proposal}
           segments={layoutDiff(review.proposal.baseMarkdown, review.proposal.hunks)}
@@ -141,7 +162,7 @@ export default function Home() {
 
   return (
     <Screen>
-      {header}
+      {writingHeader}
       {doc.error && <AppText variant="muted">{doc.error}</AppText>}
 
       {/* Bounded box — the editor scrolls itself. */}

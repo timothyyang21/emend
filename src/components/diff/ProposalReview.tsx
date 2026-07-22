@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 
 import { AppText, Button, Card, tokens } from '@/components/ui';
 import { tally, tallySentence } from '@/store/proposal';
@@ -41,13 +41,35 @@ export function ProposalReview({
   applying?: boolean;
 }) {
   const [focusedId, setFocusedId] = useState<ID | null>(null);
+
+  /**
+   * A proposed edit is work the writer has not seen anywhere else — once it is
+   * gone they would have to speak the instruction again. So leaving asks first,
+   * and both exits (Back and Discard) go through the same question rather than
+   * one of them being quietly destructive.
+   */
+  function confirmDiscard() {
+    Alert.alert('Discard the proposed changes?', "They won't be applied.", [
+      { text: 'Keep reviewing', style: 'cancel' },
+      { text: 'Discard', style: 'destructive', onPress: onDiscard },
+    ]);
+  }
   const t = tally(
     proposal.hunks.map((h) => h.id),
     decisions
   );
 
   return (
-    <View style={{ gap: 14 }}>
+    <View style={{ gap: tokens.space.md }}>
+      {/* Names where it goes, and never leaves silently. */}
+      <Button
+        title="Back to the manuscript"
+        variant="ghost"
+        size="sm"
+        onPress={confirmDiscard}
+        disabled={applying}
+      />
+
       <Card>
         <AppText variant="label">YOU SAID</AppText>
         <AppText variant="prose">“{proposal.instruction}”</AppText>
@@ -57,22 +79,24 @@ export function ProposalReview({
         <AppText variant="label">CHANGES</AppText>
         <AppText variant="h2">{tallySentence(t)}</AppText>
         {t.total > 1 && (
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <>
+            {/* The happy path, and it looks like it: full width, primary weight.
+                Most edits are accepted wholesale — making that the loudest
+                control is honest about what usually happens. */}
             <Button
-              title="Accept all"
-              size="sm"
-              variant="secondary"
+              title={`Accept all ${t.total} changes`}
               onPress={() => onDecideAll('accepted')}
-              style={{ flex: 1 }}
+              disabled={applying}
             />
+            {/* Deliberately quieter, and deliberately still here. */}
             <Button
               title="Reject all"
+              variant="ghost"
               size="sm"
-              variant="secondary"
               onPress={() => onDecideAll('rejected')}
-              style={{ flex: 1 }}
+              disabled={applying}
             />
-          </View>
+          </>
         )}
       </Card>
 
@@ -92,6 +116,10 @@ export function ProposalReview({
           <Legend color={tokens.diff.insertBg} label="going in" />
         </View>
       </Card>
+
+      {/* Ranked below Accept all, never removed: deciding change by change is
+          the whole trust argument of this product. */}
+      <AppText variant="label">OR DECIDE ONE AT A TIME</AppText>
 
       {proposal.hunks.map((h) => (
         <Card key={h.id}>
@@ -122,7 +150,12 @@ export function ProposalReview({
             as they were.
           </AppText>
         )}
-        <Button title="Discard this edit" variant="ghost" onPress={onDiscard} disabled={applying} />
+        <Button
+          title="Discard this edit"
+          variant="ghost"
+          onPress={confirmDiscard}
+          disabled={applying}
+        />
       </Card>
     </View>
   );

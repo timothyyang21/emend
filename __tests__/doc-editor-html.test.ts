@@ -53,14 +53,26 @@ test('bridge messages are parsed defensively', () => {
 
 // --- keyboard dismissal + caret stability -----------------------------------
 
-test('the page offers a Done button, shown only while the document has focus', () => {
+test('the page offers a Done button whenever the keyboard is up', () => {
   const html = buildEditorHtml('<p>x</p>', true);
   expect(html).toContain('id="done"');
-  // Hidden by default, revealed by the focus class — never a stray commit-looking
-  // control on a document nobody is editing.
-  expect(html).toContain('body.focused #done { display: block; }');
+  // The rail — and therefore the way out — appears on focus, not on selection.
+  // Requiring a selection to dismiss the keyboard would be a trap with extra steps.
+  expect(html).toContain('#bar {\n    display: none;');
+  expect(html).toContain('body.focused #bar { display: flex; }');
   expect(html).toMatch(/doc\.addEventListener\('focus'/);
   expect(html).toMatch(/doc\.addEventListener\('blur'/);
+});
+
+test('formatting chrome is absent until text is actually selected', () => {
+  const html = buildEditorHtml('<p>x</p>', true);
+  // Default state on the most important screen is the manuscript and nothing
+  // else — no permanent Bold/Italic furniture above someone's novel.
+  expect(html).toContain('#toolbar {\n    display: none;');
+  expect(html).toContain('body.selecting #toolbar { display: flex; }');
+  // And "selected" means a real, non-collapsed range inside the document.
+  expect(html).toContain('!sel.isCollapsed');
+  expect(html).toContain("classList.toggle('selecting', on)");
 });
 
 test('the app can blur the document across the bridge', () => {
