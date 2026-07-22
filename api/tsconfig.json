@@ -1,0 +1,21 @@
+{
+  // Vercel typechecks each function against the nearest tsconfig. The handlers
+  // import their helpers with explicit .ts extensions because that is what Node's
+  // type stripping requires for scripts/dev-api.mjs to run them unmodified —
+  // which is the whole reason there is no second copy of this code to drift.
+  //
+  // Without this file Vercel rejects those imports (TS5097) and the functions
+  // fail to invoke in production, while every local check stays green.
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2022",
+    "lib": ["es2022"],
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"]
+}
