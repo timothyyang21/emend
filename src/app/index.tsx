@@ -6,6 +6,7 @@ import { ProposalReview } from '@/components/diff';
 import { MarkdownEditor } from '@/components/editor';
 import type { MarkdownEditorHandle } from '@/components/editor/types';
 import { AppText, Button, Card, Screen, tokens } from '@/components/ui';
+import { VoiceButton } from '@/components/voice/VoiceButton';
 import { applyDecisions, layoutDiff } from '@/lib/diff';
 import { chapterLabel, currentChapter } from '@/lib/session/chapters';
 import { describeEdit, lastEdit, restoreLabel } from '@/lib/session/history';
@@ -39,6 +40,9 @@ export default function Home() {
   const router = useRouter();
   const [applying, setApplying] = useState(false);
   const [undoing, setUndoing] = useState(false);
+  // The command panel is closed by default: the editor is for writing, and a
+  // permanent control bar competes with the sentence being written.
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const editorRef = useRef<MarkdownEditorHandle>(null);
 
   // Tapping anything that is not the manuscript puts the keyboard away. Without
@@ -65,6 +69,7 @@ export default function Home() {
         return;
       }
       review.present(proposal);
+      setVoiceOpen(false);
     } catch (e) {
       review.fail(e instanceof Error ? e.message : 'The edit could not be made.');
     }
@@ -224,52 +229,79 @@ export default function Home() {
         />
       </View>
 
-      <Pressable onPress={dismissKeyboard}>
-      <Card>
-        {/* Fixed footprint: a status line that appears and disappears would
-            shove the mic button out from under the writer's thumb. */}
-        <View style={{ height: 46, justifyContent: 'center' }}>
-          <AppText variant="h2">
-            {thinking ? REVIEW_PHASE_LABEL.thinking : VOICE_STATUS_LABEL[voice.status]}
-          </AppText>
-          {recording && <AppText variant="muted">{voice.durationSec.toFixed(1)}s</AppText>}
-        </View>
+      {/* The command panel, only when asked for. Anything the writer must SEE —
+          an error, a failed edit — stays visible whether it is open or not. */}
+      {(voiceOpen || busy || recording || voice.error || review.phase === 'error') && (
+        <Pressable onPress={dismissKeyboard}>
+          <Card>
+            {/* Fixed footprint: a status line that appears and disappears would
+                shove the controls out from under the writer's thumb. */}
+            <View style={{ height: 46, justifyContent: 'center' }}>
+              <AppText variant="h2">
+                {thinking ? REVIEW_PHASE_LABEL.thinking : VOICE_STATUS_LABEL[voice.status]}
+              </AppText>
+              {recording && <AppText variant="muted">{voice.durationSec.toFixed(1)}s</AppText>}
+            </View>
 
-        {review.pendingInstruction && (thinking || review.phase === 'error') && (
-          <AppText variant="prose">“{review.pendingInstruction}”</AppText>
-        )}
+            {review.pendingInstruction && (thinking || review.phase === 'error') && (
+              <AppText variant="prose">“{review.pendingInstruction}”</AppText>
+            )}
 
-        {recording ? (
-          <>
-            <Button title="Stop and make the change" onPress={onStopSpeaking} />
-            <Button title="Discard" variant="ghost" onPress={voice.cancel} />
-          </>
-        ) : (
-          <Button
-            title={thinking ? 'Working…' : 'Speak an instruction'}
+            {recording ? (
+              <>
+                <Button title="Stop and make the change" onPress={onStopSpeaking} />
+                <Button title="Discard" variant="ghost" onPress={voice.cancel} />
+              </>
+            ) : (
+              <Button
+                title={thinking ? 'Working…' : 'Hold to speak an instruction'}
+                onPress={() => {
+                  dismissKeyboard();
+                  voice.start();
+                }}
+                loading={busy}
+                disabled={busy}
+              />
+            )}
+
+            {voice.error && (
+              <>
+                <AppText variant="muted">{voice.error}</AppText>
+                <Button title="Try again" variant="secondary" onPress={voice.reset} />
+              </>
+            )}
+            {review.phase === 'error' && review.error && (
+              <>
+                <AppText variant="muted">{review.error}</AppText>
+                <Button
+                  title="Back to the manuscript"
+                  variant="secondary"
+                  onPress={() => {
+                    review.discard();
+                    setVoiceOpen(false);
+                  }}
+                />
+              </>
+            )}
+          </Card>
+        </Pressable>
+      )}
+
+      {/* Floating, bottom-right, over the manuscript. Never while recording —
+          the panel owns the screen then, and a second control competing with
+          "Stop" is how a recording gets lost. */}
+      {!recording && (
+        <View style={{ position: 'absolute', right: tokens.space.lg, bottom: tokens.space.xl }}>
+          <VoiceButton
+            active={voiceOpen}
+            disabled={busy}
             onPress={() => {
               dismissKeyboard();
-              voice.start();
+              setVoiceOpen((open) => !open);
             }}
-            loading={busy}
-            disabled={busy}
           />
-        )}
-
-        {voice.error && (
-          <>
-            <AppText variant="muted">{voice.error}</AppText>
-            <Button title="Try again" variant="secondary" onPress={voice.reset} />
-          </>
-        )}
-        {review.phase === 'error' && review.error && (
-          <>
-            <AppText variant="muted">{review.error}</AppText>
-            <Button title="Back to the manuscript" variant="secondary" onPress={review.discard} />
-          </>
-        )}
-      </Card>
-      </Pressable>
+        </View>
+      )}
     </Screen>
   );
 }
